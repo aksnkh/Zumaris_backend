@@ -1,7 +1,10 @@
-﻿namespace Identity.Application.Features.Auth.Models;
+namespace Identity.Application.Features.Auth.Models;
 
 public sealed record AuthResponse(
     string AccessToken,
     DateTime ExpiresAtUtc,
     string UserName
-);
+)
+{
+    public DateTime RefreshTokenExpiresAtUtc { get; init; }
+}

@@ -1,157 +1,82 @@
-﻿using Identity.Application.Abstractions.Persistence;
+using Identity.Application.Abstractions.Persistence;
 using Identity.Application.Abstractions.Security;
 using Identity.Application.Features.Auth.Models;
 using Identity.Domain.Entities;
-using Microsoft.Extensions.Configuration;
-using System.Data;
 using Zumaris.Identity.Application.DTOs;
-using Zumaris.Identity.Domain.Entities;
 
 namespace Identity.Application.Features.Auth;
 
-public sealed class AuthService : IAuthService
+public sealed class AuthService(
+    IAuthRepository users,
+    ISessionRepository sessions,
+    IPasswordHasher passwords,
+    ITokenService tokens,
+    JwtSettings settings) : IAuthService
 {
-    private readonly IAuthRepository _authRepository;
-    private readonly IPasswordHasher _passwordHasher;
-    private readonly ITokenService _tokenService;
-    private readonly IConfiguration _configuration;
-
-    public AuthService(
-        IAuthRepository authRepository,
-        IPasswordHasher passwordHasher,
-        ITokenService tokenService,
-        IConfiguration configuration)
-    {
-        _authRepository = authRepository;
-        _passwordHasher = passwordHasher;
-        _tokenService = tokenService;
-        _configuration = configuration;
-    }
+    private static UnauthorizedAccessException InvalidToken() => new("نشست نامعتبر یا منقضی شده است؛ دوباره وارد شوید.");
 
     public async Task<(AuthResponse Response, string RefreshToken)> LoginAsync(
-        LoginRequest request,
-        CancellationToken cancellationToken = default)
+        LoginRequest request, CancellationToken cancellationToken = default)
     {
-        var user = await _authRepository.GetUserByUsernameAsync(request.UserName.Trim(), cancellationToken);
-
-        if (user is null || !user.IsActive)
+        if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
+            throw new UnauthorizedAccessException("نام کاربری یا کلمه عبور نادرست است.");
+        var user = await users.GetUserByUsernameAsync(request.UserName.Trim(), cancellationToken);
+        if (user is null || !user.IsActive || !passwords.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("نام کاربری یا کلمه عبور نادرست است.");
 
-
-        Console.WriteLine($"Input Password: '{request.Password}'");
-        Console.WriteLine($"DB PasswordHash: '{user.PasswordHash}'");
-        Console.WriteLine($"Verify Result: {_passwordHasher.Verify(request.Password, user.PasswordHash)}");
-
-        if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
-            throw new UnauthorizedAccessException("نام کاربری یا کلمه عبور نادرست است.");
-
-        var rawRefreshToken = _tokenService.GenerateRefreshToken();
-        var hashedRefreshToken = _tokenService.HashRefreshToken(rawRefreshToken);
-
-        var refreshDays = _configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7);
-        var accessMinutes = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 15);
-
-        var expiresAtUtc = DateTime.UtcNow.AddDays(refreshDays);
-        var createdAtUtc = DateTime.UtcNow;
-
-        await _authRepository.InsertRefreshTokenAsync(
-            Guid.NewGuid(),
-            user.Id,
-            hashedRefreshToken,
-            expiresAtUtc,
-            createdAtUtc,
-            cancellationToken);
-
-        var accessToken = _tokenService.CreateAccessToken(user);
-
-        return (
-            new AuthResponse(accessToken, DateTime.UtcNow.AddMinutes(accessMinutes), user.UserName),
-            rawRefreshToken
-        );
+        var now = DateTime.UtcNow;
+        var session = new AuthSession(Guid.NewGuid(), user.Id, user.UserName, now,
+            now.AddDays(settings.RefreshTokenExpirationDays), null);
+        var refreshToken = tokens.GenerateRefreshToken();
+        var accessToken = tokens.CreateAccessToken(user, session.Id, session.ExpiresAtUtc);
+        await sessions.CreateAsync(session, tokens.HashRefreshToken(refreshToken), cancellationToken);
+        return (new AuthResponse(accessToken.Token, accessToken.ExpiresAtUtc, user.UserName)
+            { RefreshTokenExpiresAtUtc = session.ExpiresAtUtc }, refreshToken);
     }
 
     public async Task<(AuthResponse Response, string RefreshToken)> RefreshAsync(
-        string refreshToken,
-        CancellationToken cancellationToken = default)
+        string refreshToken, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(refreshToken))
-            throw new UnauthorizedAccessException("Refresh token ارسال نشده است.");
+        if (string.IsNullOrWhiteSpace(refreshToken) || refreshToken.Length > 128) throw InvalidToken();
+        var oldHash = tokens.HashRefreshToken(refreshToken);
+        var session = await sessions.FindByTokenAsync(oldHash, cancellationToken);
+        if (session is null || session.RevokedAtUtc.HasValue || session.ExpiresAtUtc <= DateTime.UtcNow)
+            throw InvalidToken();
 
-        var hashedToken = _tokenService.HashRefreshToken(refreshToken);
-        var storedRecord = await _authRepository.GetRefreshTokenAsync(hashedToken, cancellationToken);
-
-        if (storedRecord is null || !storedRecord.IsActive)
-            throw new UnauthorizedAccessException("Refresh token نامعتبر یا منقضی شده است.");
-
-        var newRawRefreshToken = _tokenService.GenerateRefreshToken();
-        var newHashedRefreshToken = _tokenService.HashRefreshToken(newRawRefreshToken);
-
-        var refreshDays = _configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7);
-        var accessMinutes = _configuration.GetValue<int>("Jwt:AccessTokenExpirationMinutes", 15);
-
-        var newExpiresAtUtc = DateTime.UtcNow.AddDays(refreshDays);
-        var newCreatedAtUtc = DateTime.UtcNow;
-
-        var isRotated = await _authRepository.RotateRefreshTokenAsync(
-            hashedToken,
-            Guid.NewGuid(),
-            storedRecord.UserId,
-            newHashedRefreshToken,
-            newExpiresAtUtc,
-            newCreatedAtUtc,
-            cancellationToken);
-
-        if (!isRotated)
-            throw new UnauthorizedAccessException("خطا در چرخش توکن. لطفاً مجدداً لاگین کنید.");
-
-        var user = new User
+        // Re-read the real user instead of trusting stale/missing data in a token record.
+        var user = await users.GetUserByUsernameAsync(session.UserName, cancellationToken);
+        if (user is null || !user.IsActive || user.Id != session.UserId)
         {
-            Id = storedRecord.UserId,
-            UserName = storedRecord.UserName,
-            Email = storedRecord.Email,
-            IsActive = storedRecord.UserIsActive            
-        };
+            await sessions.RevokeAsync(session.Id, session.UserId, cancellationToken);
+            throw InvalidToken();
+        }
 
-        var newAccessToken = _tokenService.CreateAccessToken(user);
-
-        return (
-            new AuthResponse(newAccessToken, DateTime.UtcNow.AddMinutes(accessMinutes), user.UserName),
-            newRawRefreshToken
-        );
+        var newRefreshToken = tokens.GenerateRefreshToken();
+        var accessToken = tokens.CreateAccessToken(user, session.Id, session.ExpiresAtUtc);
+        if (!await sessions.RotateAsync(session.Id, oldHash, tokens.HashRefreshToken(newRefreshToken), cancellationToken))
+            throw InvalidToken();
+        return (new AuthResponse(accessToken.Token, accessToken.ExpiresAtUtc, user.UserName)
+            { RefreshTokenExpiresAtUtc = session.ExpiresAtUtc }, newRefreshToken);
     }
 
     public async Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(refreshToken))
-            return;
-
-        var hashedToken = _tokenService.HashRefreshToken(refreshToken);
-        await _authRepository.RevokeRefreshTokenAsync(hashedToken, cancellationToken);
+        if (string.IsNullOrWhiteSpace(refreshToken) || refreshToken.Length > 128) return;
+        var session = await sessions.FindByTokenAsync(tokens.HashRefreshToken(refreshToken), cancellationToken);
+        if (session is not null) await sessions.RevokeAsync(session.Id, session.UserId, cancellationToken);
     }
 
-    // در لایه Application
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
     {
-        string passwordHash = _passwordHasher.Hash(request.Password);
-
+        var passwordHash = passwords.Hash(request.Password);
         try
         {
-            await _authRepository.RegisterAsync(
-                request.Username,
-                passwordHash,
-                request.Email
-            );
-
+            await users.RegisterAsync(request.Username, passwordHash, request.Email);
             return new RegisterResponse(true, "User registered successfully.");
         }
-        catch (Exception ex) when (ex.Message.Contains("Username already exists"))
+        catch (Exception ex) when (ex.Message.Contains("Username already exists", StringComparison.OrdinalIgnoreCase))
         {
             return new RegisterResponse(false, "Username is already taken.");
         }
-        catch (Exception ex)
-        {
-            return new RegisterResponse(false, ex.Message);
-        }
     }
-
 }

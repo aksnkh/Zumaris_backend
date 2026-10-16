@@ -8,11 +8,15 @@ Install Visual Studio 2022 version 17.8 or later with the .NET 8 SDK and the ASP
 
 The solution contains the Identity microservice and its shared response library. In Solution Explorer, right-click `Identity.Api` and select **Set as Startup Project**. Select the `http` launch profile and press F5 to open Swagger.
 
+Before using login/session features, manually run [database/identity/001_auth_sessions.sql](database/identity/001_auth_sessions.sql) in the existing Identity database. See [JWT instructions](docs/jwt.md) for the client changes, session endpoints, and deployment order. This script is not run automatically.
+
 ## Layout
 
 - `src/Services/Identity`: Api, Application, Domain, Infrastructure.
 - `src/BuildingBlocks/Zumaris.BuildingBlocks.Common`: shared response types.
 - `src/Gateways/YarpGateway`: independent YARP API gateway.
+- `tests/Identity.Tests`: Identity HTTP/JWT integration tests using in-memory persistence.
+- `database/identity`: SQL scripts for manual execution.
 
 ## Build and run Identity
 

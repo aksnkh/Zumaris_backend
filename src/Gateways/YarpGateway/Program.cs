@@ -1,4 +1,4 @@
-﻿var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 // ۱. رجیستر کردن YARP
 builder.Services.AddReverseProxy()
@@ -9,19 +9,16 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // ۳. تنظیم CORS
-builder.Services.AddCors(options =>
+// Cross-origin browser access must be explicitly configured; same-origin Swagger needs no CORS.
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 {
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
+    var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+    if (origins.Length > 0) policy.WithOrigins(origins).AllowAnyMethod().AllowAnyHeader().AllowCredentials();
+}));
 
 var app = builder.Build();
 
-app.UseCors("AllowAll");
+app.UseCors();
 
 // ۴. فعال‌سازی Swagger UI و تجمیع اندپوینت‌ها
 //if (app.Environment.IsDevelopment())

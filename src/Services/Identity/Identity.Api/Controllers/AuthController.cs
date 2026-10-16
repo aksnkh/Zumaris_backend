@@ -1,6 +1,7 @@
-﻿using Identity.Application.Features.Auth;
+using Identity.Application.Abstractions.Persistence;
+using Identity.Application.Features.Auth;
 using Identity.Application.Features.Auth.Models;
-using Microsoft.AspNetCore.Authorization;
+using Identity.Api.Security;
 using Microsoft.AspNetCore.Mvc;
 using Zumaris.BuildingBlocks.Common.Responses;
 using Zumaris.Identity.Application.DTOs;
@@ -9,199 +10,98 @@ namespace Identity.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController : ControllerBase
+[AuthRequest]
+public sealed class AuthController(IAuthService authService, ISessionRepository sessions) : ControllerBase
 {
-    private const string CookieName = "zumaris_refresh_token";
-    private readonly IAuthService _authService;
-    private readonly IConfiguration _configuration;
+    public const string CookieName = "zumaris_refresh_token";
 
-    public AuthController(IAuthService authService, IConfiguration configuration)
-    {
-        _authService = authService;
-        _configuration = configuration;
-    }
-    
     [HttpPost("login")]
-    [ProducesResponseType(typeof(Response<AuthResponse>), StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<Response<AuthResponse>>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<Response<AuthResponse>>> Login(LoginRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var (authResponse, refreshToken) = await _authService.LoginAsync(request, cancellationToken);
-
-            AppendRefreshTokenCookie(refreshToken);
-
-            var response = new Response<AuthResponse>(authResponse)
-            {
-                StatusCode = StatusCodes.Status200OK,
-                Title = "Success",
-                Message = "ورود با موفقیت انجام شد.",
-                MessageLevel = MessageLevel.Cif
-            };
-
-            return Ok(response);
+            var (response, refreshToken) = await authService.LoginAsync(request, cancellationToken);
+            SetRefreshCookie(refreshToken, response.RefreshTokenExpiresAtUtc);
+            return Ok(new Response<AuthResponse>(response) { StatusCode = 200, Title = "Success" });
         }
-        catch (UnauthorizedAccessException ex)
-        {
-            var errorResponse = new Response<AuthResponse>()
-            {
-                StatusCode = StatusCodes.Status401Unauthorized,
-                Title = "Unauthorized",
-                Message = ex.Message,
-                MessageLevel = MessageLevel.Cif,
-                DevMessage = ex.ToString() // یا پیام فنی مرتبط
-            };
-
-            return Unauthorized(errorResponse);
-        }
+        catch (UnauthorizedAccessException ex) { return Denied<AuthResponse>(ex.Message); }
     }
-
 
     [HttpPost("refresh")]
-    [ProducesResponseType(typeof(Response<AuthResponse>), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<Response<AuthResponse>>> Refresh(CancellationToken cancellationToken)
     {
-        var rawRefreshToken = Request.Cookies[CookieName];
-
         try
         {
-            var (authResponse, newRefreshToken) = await _authService.RefreshAsync(rawRefreshToken ?? string.Empty, cancellationToken);
-
-            AppendRefreshTokenCookie(newRefreshToken);
-
-            var response = new Response<AuthResponse>(authResponse)
-            {
-                StatusCode = StatusCodes.Status200OK,
-                Title = "Success",
-                Message = "توکن با موفقیت تمدید شد.",
-                MessageLevel = MessageLevel.Cif
-            };
-
-            return Ok(response);
+            var (response, refreshToken) = await authService.RefreshAsync(Request.Cookies[CookieName] ?? "", cancellationToken);
+            SetRefreshCookie(refreshToken, response.RefreshTokenExpiresAtUtc);
+            return Ok(new Response<AuthResponse>(response) { StatusCode = 200, Title = "Success" });
         }
         catch (UnauthorizedAccessException ex)
         {
-            RemoveRefreshTokenCookie();
-
-            var errorResponse = new Response<AuthResponse>
-            {
-                StatusCode = StatusCodes.Status401Unauthorized,
-                Title = "Unauthorized",
-                Message = ex.Message,
-                MessageLevel = MessageLevel.Cif,
-                DevMessage = ex.ToString()
-            };
-
-            return Unauthorized(errorResponse);
+            DeleteRefreshCookie();
+            return Denied<AuthResponse>(ex.Message);
         }
     }
 
-
+    // Cookie possession is sufficient for logout, even after the access token has expired.
     [HttpPost("logout")]
-    [ProducesResponseType(typeof(Response<bool?>), StatusCodes.Status401Unauthorized)]
-    [Authorize]
-    public async Task<ActionResult<Response<bool?>>> Logout(CancellationToken cancellationToken)
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
-        var rawRefreshToken = Request.Cookies[CookieName];
-
-        try
-        {
-            await _authService.LogoutAsync(rawRefreshToken ?? string.Empty, cancellationToken);
-            RemoveRefreshTokenCookie();
-
-            var response = new Response<bool?>
-            {
-                StatusCode = StatusCodes.Status200OK,
-                Title = "Success",
-                Message = "خروج با موفقیت انجام شد.",
-                MessageLevel = MessageLevel.Cif,
-                Payload = true
-            };
-
-            return Ok(response);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            RemoveRefreshTokenCookie();
-
-            var errorResponse = new Response<bool?>
-            {
-                StatusCode = StatusCodes.Status401Unauthorized,
-                Title = "Unauthorized",
-                Message = ex.Message,
-                MessageLevel = MessageLevel.Cif,
-                DevMessage = ex.ToString()
-            };
-
-            return Unauthorized(errorResponse);
-        }
+        await authService.LogoutAsync(Request.Cookies[CookieName] ?? "", cancellationToken);
+        if (Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) &&
+            Guid.TryParse(User.FindFirst("sid")?.Value, out var sessionId))
+            await sessions.RevokeAsync(sessionId, userId, cancellationToken);
+        DeleteRefreshCookie();
+        return NoContent();
     }
-
-    private void AppendRefreshTokenCookie(string refreshToken)
-    {
-        var days = _configuration.GetValue<int>("Jwt:RefreshTokenExpirationDays", 7);
-
-        Response.Cookies.Append(CookieName, refreshToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = !HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment(),
-            SameSite = SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(days),
-            Path = "/api/auth"
-        });
-    }
-
-    private void RemoveRefreshTokenCookie()
-    {
-        Response.Cookies.Delete(CookieName, new CookieOptions { Path = "/api/auth" });
-    }
-
 
     [HttpPost("register")]
-    [ProducesResponseType(typeof(Response<RegisterResponse>), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<Response<RegisterResponse>>> Register([FromBody] RegisterRequest request)
+    public async Task<ActionResult<Response<RegisterResponse>>> Register(RegisterRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            var validationErrors = string.Join("; ", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage));
-
-            var validationResponse = new Response<RegisterResponse>
-            {
-                StatusCode = StatusCodes.Status400BadRequest,
-                Title = "Validation Error",
-                Message = "اطلاعات ارسالی معتبر نمی‌باشد.",
-                MessageLevel = MessageLevel.Cif,
-                Parameters = validationErrors
-            };
-
-            return BadRequest(validationResponse);
-        }
-
-        var result = await _authService.RegisterAsync(request);
-
-        if (!result.Success)
-        {
-            var errorResponse = new Response<RegisterResponse>
-            {
-                StatusCode = StatusCodes.Status400BadRequest,
-                Title = "Registration Failed",
-                Message = result.Message ?? "ثبت‌نام با خطا مواجه شد.",
-                MessageLevel = MessageLevel.Cif
-            };
-
-            return BadRequest(errorResponse);
-        }
-
+        var result = await authService.RegisterAsync(request);
         var response = new Response<RegisterResponse>(result)
         {
-            StatusCode = StatusCodes.Status200OK,
-            Title = "Success",
-            Message = "ثبت‌نام با موفقیت انجام شد.",
-            MessageLevel = MessageLevel.Cif
+            StatusCode = result.Success ? 200 : 400,
+            Title = result.Success ? "Success" : "Registration Failed",
+            Message = result.Message
         };
+        return result.Success ? Ok(response) : BadRequest(response);
+    }
 
-        return Ok(response);
+    private UnauthorizedObjectResult Denied<T>(string message) => Unauthorized(new Response<T>
+        { StatusCode = 401, Title = "Unauthorized", Message = message });
+
+    private CookieOptions CookieOptions() => new()
+    {
+        HttpOnly = true,
+        Secure = !HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment(),
+        SameSite = SameSiteMode.Strict,
+        Path = "/",
+        IsEssential = true
+    };
+
+    private void SetRefreshCookie(string token, DateTime expiresAtUtc)
+    {
+        // Remove legacy path-scoped cookies so browsers cannot send two values for the same name.
+        DeleteLegacyCookies();
+        var options = CookieOptions();
+        options.Expires = new DateTimeOffset(DateTime.SpecifyKind(expiresAtUtc, DateTimeKind.Utc));
+        Response.Cookies.Append(CookieName, token, options);
+    }
+
+    private void DeleteLegacyCookies()
+    {
+        foreach (var path in new[] { "/api/auth", "/identity/api/auth" })
+        {
+            var options = CookieOptions();
+            options.Path = path;
+            Response.Cookies.Delete(CookieName, options);
+        }
+    }
+
+    private void DeleteRefreshCookie()
+    {
+        DeleteLegacyCookies();
+        Response.Cookies.Delete(CookieName, CookieOptions());
     }
 }

@@ -1,35 +1,9 @@
 # Identity integration
 
-Imported from the supplied `identity.rar` into the existing root solution. Relative project references are retained. Generated `bin`, `obj`, `.vs`, personal `.user` files, the archive's separate solution, and its deployment workflow are not imported. No automatic deployment is configured.
+The supplied `identity.rar` is integrated into the root solution under `src/Services/Identity`, with shared response types under `src/BuildingBlocks`. Generated artifacts, personal Visual Studio files, the archive's separate solution and deployment workflow were excluded.
 
-The three `Microsoft.Extensions.Configuration*` dependencies were changed from .NET 11 previews to stable 8.0.0 packages for the .NET 8 target. Application behavior and the supplied connection/JWT configuration are otherwise preserved.
+The configuration dependencies target stable .NET 8 packages. API, Application, Domain and Infrastructure remain separate projects, and persistence uses MySqlConnector with direct parameterized SQL and the existing registration/user-lookup stored procedures; no ORM is used.
 
-## Verified
+JWT/session behavior has since been revised. See [JWT setup, client contract and validation](jwt.md). Run the supplied [manual MySQL migration](../database/identity/001_auth_sessions.sql) before using login/session features in this version. The migration was not executed during development.
 
-- Solution build with .NET SDK 8.0.426.
-- API startup using the `http` profile.
-- Swagger JSON returns HTTP 200 and describes login, register, refresh, and logout.
-- Refresh without a cookie and logout without authorization return HTTP 401.
-- Malformed login JSON returns HTTP 400.
-
-The archive contains no test project. Database-backed registration, login, and token rotation have not been validated. Nullable initialization warnings in the supplied shared response class may appear on a clean build.
-
-## Database
-
-No SQL was executed and no database schema changes are required merely to import the projects. The archive contains no schema or stored procedure definitions. Before preparing compatible SQL changes, provide the existing MySQL schema and procedure definitions (without table data), along with the MySQL server version. SQL changes will be supplied for manual execution.
-
-`AuthAdoNetRepository` calls these procedures:
-
-| Procedure | Parameters |
-| --- | --- |
-| `sp_identity_get_user_by_username` | `p_user_name` |
-| `sp_identity_register_user` | `p_user_name`, `p_password_hash`, `p_email` |
-| `sp_identity_insert_refresh_token` | `p_id`, `p_user_id`, `p_token_hash`, `p_expires_at`, `p_created_at` |
-| `sp_identity_get_refresh_token` | `p_token_hash` |
-| `sp_identity_rotate_refresh_token` | `p_old_token_hash`, `p_new_id`, `p_user_id`, `p_new_token_hash`, `p_new_expires_at`, `p_new_created_at`, output `p_is_success` |
-| `sp_identity_revoke_refresh_token` | `p_token_hash` |
-
-## Existing behavior to review separately
-
-- `AuthService.LoginAsync` writes passwords and password hashes to console output. Remove this logging before using actual user credentials.
-- `GetRefreshTokenAsync` does not populate `UserName`, `Email`, or `UserIsActive`, although refresh validation depends on those properties. The default `UserIsActive = false` causes retrieved refresh records to fail `IsActive`. This existing application defect needs correction and database-backed validation.
+The previous password logging and missing refresh user mapping have been removed with the session redesign. Existing connection strings, signing values and password-hash format are unchanged. Nullable initialization warnings in the supplied shared response library remain unrelated to this change.

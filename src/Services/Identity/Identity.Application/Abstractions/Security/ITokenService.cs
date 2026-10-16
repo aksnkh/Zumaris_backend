@@ -5,9 +5,11 @@ namespace Identity.Application.Abstractions.Security;
 
 public interface ITokenService
 {
-    string CreateAccessToken(User user);
+    IssuedAccessToken CreateAccessToken(User user, Guid sessionId, DateTime sessionExpiresAtUtc);
     string GenerateRefreshToken();
     string HashRefreshToken(string refreshToken);
 }
+
+public sealed record IssuedAccessToken(string Token, DateTime ExpiresAtUtc);
 
 

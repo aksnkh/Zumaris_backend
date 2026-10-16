@@ -3,6 +3,24 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{37EC47B0-62F6-47C6-B52A-A81F8FC780A5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "BuildingBlocks", "BuildingBlocks", "{A65CF32B-3E9A-4467-8CF9-3155BA2CAF20}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zumaris.BuildingBlocks.Common", "src\BuildingBlocks\Zumaris.BuildingBlocks.Common\Zumaris.BuildingBlocks.Common.csproj", "{0614049C-8CF9-470F-BFF5-4CAB1EDA327F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{4F57DDBA-4162-4639-9B98-427C2CAB518E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Identity", "Identity", "{17F2525B-A600-4559-9B46-C0C6BEB42F58}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Identity.Api", "src\Services\Identity\Identity.Api\Identity.Api.csproj", "{0B8B23D3-6B94-44DF-B4D2-1C7B041C6463}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Identity.Application", "src\Services\Identity\Identity.Application\Identity.Application.csproj", "{7CEFBCA4-A899-4B53-962C-F33AEA8245F4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Identity.Domain", "src\Services\Identity\Identity.Domain\Identity.Domain.csproj", "{81782E54-30F6-4340-B942-A5C70D76B7B9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Identity.Infrastructure", "src\Services\Identity\Identity.Infrastructure\Identity.Infrastructure.csproj", "{EC44D667-5B03-4643-84DA-D02854546949}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -10,5 +28,37 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0614049C-8CF9-470F-BFF5-4CAB1EDA327F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0614049C-8CF9-470F-BFF5-4CAB1EDA327F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0614049C-8CF9-470F-BFF5-4CAB1EDA327F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0614049C-8CF9-470F-BFF5-4CAB1EDA327F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B8B23D3-6B94-44DF-B4D2-1C7B041C6463}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B8B23D3-6B94-44DF-B4D2-1C7B041C6463}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B8B23D3-6B94-44DF-B4D2-1C7B041C6463}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B8B23D3-6B94-44DF-B4D2-1C7B041C6463}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7CEFBCA4-A899-4B53-962C-F33AEA8245F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7CEFBCA4-A899-4B53-962C-F33AEA8245F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7CEFBCA4-A899-4B53-962C-F33AEA8245F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7CEFBCA4-A899-4B53-962C-F33AEA8245F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{81782E54-30F6-4340-B942-A5C70D76B7B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81782E54-30F6-4340-B942-A5C70D76B7B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81782E54-30F6-4340-B942-A5C70D76B7B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81782E54-30F6-4340-B942-A5C70D76B7B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC44D667-5B03-4643-84DA-D02854546949}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC44D667-5B03-4643-84DA-D02854546949}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC44D667-5B03-4643-84DA-D02854546949}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC44D667-5B03-4643-84DA-D02854546949}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A65CF32B-3E9A-4467-8CF9-3155BA2CAF20} = {37EC47B0-62F6-47C6-B52A-A81F8FC780A5}
+		{0614049C-8CF9-470F-BFF5-4CAB1EDA327F} = {A65CF32B-3E9A-4467-8CF9-3155BA2CAF20}
+		{4F57DDBA-4162-4639-9B98-427C2CAB518E} = {37EC47B0-62F6-47C6-B52A-A81F8FC780A5}
+		{17F2525B-A600-4559-9B46-C0C6BEB42F58} = {4F57DDBA-4162-4639-9B98-427C2CAB518E}
+		{0B8B23D3-6B94-44DF-B4D2-1C7B041C6463} = {17F2525B-A600-4559-9B46-C0C6BEB42F58}
+		{7CEFBCA4-A899-4B53-962C-F33AEA8245F4} = {17F2525B-A600-4559-9B46-C0C6BEB42F58}
+		{81782E54-30F6-4340-B942-A5C70D76B7B9} = {17F2525B-A600-4559-9B46-C0C6BEB42F58}
+		{EC44D667-5B03-4643-84DA-D02854546949} = {17F2525B-A600-4559-9B46-C0C6BEB42F58}
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,9 @@
+# Visual Studio user settings
+.vs/
+*.user
+*.suo
+
+# .NET build outputs
+**/bin/
+**/obj/
+TestResults/

@@ -1,0 +1,50 @@
+﻿var builder = WebApplication.CreateBuilder(args);
+
+// ۱. رجیستر کردن YARP
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+// ۲. اضافه کردن سرویس‌های سواگر
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// ۳. تنظیم CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+var app = builder.Build();
+
+app.UseCors("AllowAll");
+
+// ۴. فعال‌سازی Swagger UI و تجمیع اندپوینت‌ها
+//if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        // مسیر JSON هر میکروسرویس از دل Gateway صدا زده می‌شود:
+        options.SwaggerEndpoint("/identity/swagger/v1/swagger.json", "Identity Service");
+        options.SwaggerEndpoint("/service-request/swagger/v1/swagger.json", "Service Request Service");
+        //options.SwaggerEndpoint("/home-passport/swagger/v1/swagger.json", "Home Passport Service");
+        //options.SwaggerEndpoint("/billing/swagger/v1/swagger.json", "Billing Service");
+        //options.SwaggerEndpoint("/booking/swagger/v1/swagger.json", "Booking Service");
+        //options.SwaggerEndpoint("/job-management/swagger/v1/swagger.json", "Job Management Service");
+        //options.SwaggerEndpoint("/notification/swagger/v1/swagger.json", "Notification Service");
+        //options.SwaggerEndpoint("/provider/swagger/v1/swagger.json", "Provider Service");
+
+        // اگر می‌خواهید با باز کردن آدرس اصلی گیت‌وی (localhost:5000) مستقیماً سواگر باز شود:
+        options.RoutePrefix = string.Empty;
+    });
+}
+
+// ۵. فعال‌سازی Reverse Proxy
+app.MapReverseProxy();
+
+app.Run();

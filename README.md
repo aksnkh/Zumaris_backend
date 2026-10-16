@@ -12,6 +12,7 @@ The solution contains the Identity microservice and its shared response library.
 
 - `src/Services/Identity`: Api, Application, Domain, Infrastructure.
 - `src/BuildingBlocks/Zumaris.BuildingBlocks.Common`: shared response types.
+- `src/Gateways/YarpGateway`: independent YARP API gateway.
 
 ## Build and run Identity
 
@@ -23,5 +24,17 @@ dotnet run --project src/Services/Identity/Identity.Api/Identity.Api.csproj --la
 The HTTP profile uses port 5105 and the Development environment. Existing application configuration is retained from the supplied archive. Optional process overrides use `ConnectionStrings__DefaultConnection` and `Jwt__Key`.
 
 See [Identity integration notes](docs/identity.md) for validation results and database requirements.
+
+## Run Gateway and Identity together in Visual Studio
+
+Right-click the solution, open **Properties → Startup Project**, choose **Multiple startup projects**, and set both `Identity.Api` and `YarpGateway` to **Start**. Use the `http` profile for each project. Gateway listens on port 5039 and Identity on port 5105.
+
+From a second terminal, start the Gateway with:
+
+```sh
+dotnet run --project src/Gateways/YarpGateway/YarpGateway.csproj --launch-profile http
+```
+
+See [Gateway integration notes](docs/gateway.md) for routes, validation, and remaining authentication integration work.
 
 Database changes will be supplied as SQL scripts for manual execution.

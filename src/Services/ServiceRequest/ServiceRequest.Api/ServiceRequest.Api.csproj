@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ServiceRequest.Application/ServiceRequest.Application.csproj" />
+    <ProjectReference Include="../ServiceRequest.Infrastructure/ServiceRequest.Infrastructure.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Zumaris.BuildingBlocks.Common/Zumaris.BuildingBlocks.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.31" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+  </ItemGroup>
+</Project>

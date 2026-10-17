@@ -7,3 +7,6 @@
 **/bin/
 **/obj/
 TestResults/
+
+# Per-machine credentials; loaded by Service Request and included only in local publish output.
+**/appsettings.Local.json

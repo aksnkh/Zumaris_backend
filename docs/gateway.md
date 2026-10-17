@@ -8,7 +8,7 @@ The project is under `src/Gateways/YarpGateway` and its own solution folders. It
 - `/identity/{**catch-all}` forwards to Identity after removing `/identity`.
 - Development uses Identity port 5105, matching its launch profile.
 - Base configuration keeps the supplied Identity and Service Request ports 5001/5002.
-- `/service-request` and its Swagger entry remain configured; that service has not been supplied or tested.
+- `/service-request` forwards to the new Service Request API on IIS port 5002 (Development 5106). See [Service Request](service-request.md) for its manual SQL setup and Identity session-validation dependency.
 - HTTPS destinations use normal certificate validation.
 
 Run Identity and Gateway with their `http` profiles, either in separate terminals or with Visual Studio **Multiple startup projects**. The Gateway does not replace Identity's JWT validation.

@@ -60,6 +60,6 @@ dotnet publish src/Gateways/YarpGateway/YarpGateway.csproj -c Release -p:Publish
 - **400 در POST/DELETE**: هدر `X-Zumaris-CSRF: 1` و Response body را بررسی کنید.
 - **401 در Refresh**: Cookie، ثبات نام میزبان، HTTPS و اجرای اسکریپت نشست‌ها را بررسی کنید؛ استفاده دوباره از Refresh Token مصرف‌شده کل نشست را باطل می‌کند.
 - **Redirect به آدرس داخلی**: نسخه جدید Identity و محیط Production را بررسی کنید. فقط هدر پروکسی محلی مورد اعتماد است.
-- فعلاً Service Request را انتخاب نکنید؛ سرویس آن هنوز به ریپوزیتوری اضافه نشده است.
+- برای Service Request، اسکریپت اسکیما جدید و سرویس داخلی پورت 5002 را طبق `docs/service-request.md` آماده و Identity را با endpoint بررسی نشست دوباره منتشر کنید؛ سپس آن را در Swagger انتخاب کنید.
 
 خروجی Release و هدرهای پروکسی در محیط توسعه Codex بررسی می‌شوند؛ موفقیت استقرار روی IIS و Login/Refresh متصل به MySQL سرور باید پس از کپی خروجی توسط شما تأیید شود.

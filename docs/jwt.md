@@ -51,7 +51,7 @@ Identity limits controller requests to 30 per minute per observed remote IP, per
 
 Exception responses are generic Problem Details; stack traces, SQL/connection details and password hashes are not returned to clients. Password console logging was removed. Existing password hashes/formats remain supported unchanged.
 
-Gateway routes requests; it does not issue or independently validate JWTs. Future services must validate signature, issuer, audience, lifetime and algorithm themselves, and perform a shared session check/introspection if immediate session revocation is required there. Immediate access revocation in this version is verified for Identity only.
+Gateway routes requests; it does not issue or independently validate JWTs. Service Request validates the token locally and checks the protected `GET /api/auth/session` endpoint on Identity before accepting a request; the endpoint returns 204 only for an active, valid session. It is excluded from Identity's general controller rate bucket so service-to-service validation does not consume the login allowance. Future services must also validate signature, issuer, audience, lifetime and algorithm, plus perform a session check/introspection if immediate session revocation is required.
 
 For routine cleanup, delete expired sessions only after a retention window; the foreign key removes their token history. Never delete consumed hashes while a session is live. The SQL file includes an optional commented maintenance command; it is not scheduled or executed automatically.
 

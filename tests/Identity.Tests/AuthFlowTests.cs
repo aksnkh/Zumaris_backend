@@ -249,6 +249,20 @@ public sealed class AuthFlowTests
     }
 
     [Fact]
+    public async Task Session_validation_contract_is_204_only_for_active_authenticated_session()
+    {
+        using var factory = new AuthFactory(); using var client = factory.NewClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/session")).StatusCode);
+        var login = await Login(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Access);
+        using var active = await client.GetAsync("/api/auth/session");
+        Assert.Equal(HttpStatusCode.NoContent, active.StatusCode);
+        Assert.Equal("no-store", active.Headers.CacheControl?.ToString());
+        await factory.Sessions.RevokeAllAsync(factory.Users.User.Id);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/session")).StatusCode);
+    }
+
+    [Fact]
     public void Jwt_settings_reject_weak_keys_and_unbounded_lifetimes()
     {
         var settings = new JwtSettings { Key = "short", Issuer = "issuer", Audience = "audience" };

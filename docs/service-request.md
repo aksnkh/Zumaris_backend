@@ -98,7 +98,7 @@ dotnet publish src/Services/ServiceRequest/ServiceRequest.Api/ServiceRequest.Api
 
 ## تصاویر
 
-فایل‌های واقعی در مسیر خصوصی `D:\ZumarisData\Uploads` (قابل تنظیم) ذخیره و فقط مسیر نسبی در دیتابیس ثبت می‌شود. جزئیات JPEG/PNG، سقف 8 تصویر، مجوز پوشه و آپلود با Version در [راهنمای تصاویر](service-request-photos.md) آمده است.
+فایل‌های واقعی در مسیر خصوصی `C:\ZumarisData\Uploads` (قابل تنظیم) ذخیره و فقط مسیر نسبی در دیتابیس ثبت می‌شود. جزئیات JPEG/PNG، سقف 8 تصویر، مجوز پوشه و آپلود با Version در [راهنمای تصاویر](service-request-photos.md) آمده است.
 
 ## بررسی بعد از اجرای SQL توسط شما
 

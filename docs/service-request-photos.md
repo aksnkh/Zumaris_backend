@@ -41,13 +41,13 @@ POST ثبت اولیه نیز مانند قبل برقرار است. جزئیا�
 
 ## ۳. پوشه تصاویر در سرور IIS
 
-مقدار پیش‌فرض تنظیم **Storage:RootPath** اکنون `D:\ZumarisData\Uploads` است؛ بیرون از ریپوزیتوری و پوشه Publish. آن را متناسب با سرور در appsettings یا متغیر محیطی `Storage__RootPath` تغییر دهید. در Linux مسیر مطلق مناسب همان ماشین لازم است.
+مقدار پیش‌فرض تنظیم **Storage:RootPath** اکنون `C:\ZumarisData\Uploads` است؛ بیرون از ریپوزیتوری و پوشه Publish. آن را متناسب با سرور در appsettings یا متغیر محیطی `Storage__RootPath` تغییر دهید. در Linux مسیر مطلق مناسب همان ماشین لازم است.
 
 روی سرور پوشه را بسازید و به هویت Application Pool سرویس Service Request مجوز **Modify** بدهید. مثال زیر را با نام واقعی Pool خود جایگزین کنید:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path 'D:\ZumarisData\Uploads'
-icacls 'D:\ZumarisData\Uploads' /grant 'IIS AppPool\Zumaris.ServiceRequest:(OI)(CI)M'
+New-Item -ItemType Directory -Force -Path 'C:\ZumarisData\Uploads'
+icacls 'C:\ZumarisData\Uploads' /grant 'IIS AppPool\Zumaris.ServiceRequest:(OI)(CI)M'
 ```
 
 این پوشه را به Virtual Directory عمومی تبدیل نکنید؛ فایل‌ها از endpoint احرازشده خوانده می‌شوند. سرویس نام اصلی فایل را استفاده نمی‌کند و مسیر تولیدشده شبیه زیر است:

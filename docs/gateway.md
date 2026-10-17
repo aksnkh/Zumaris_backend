@@ -1,5 +1,7 @@
 # YARP Gateway
 
+For deployment alongside the existing Identity service on IIS port 5001, follow [the IIS deployment guide](iis-gateway.md). Use the `IISProduction` publish profile and republish Identity to apply trusted local HTTPS forwarding.
+
 The project is under `src/Gateways/YarpGateway` and its own solution folders. It targets .NET 8 with YARP 2.3.0. Personal Visual Studio files and generated artifacts are excluded.
 
 - Gateway HTTP profile: port 5039, Swagger UI at the root.

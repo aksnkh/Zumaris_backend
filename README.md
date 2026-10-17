@@ -41,4 +41,6 @@ dotnet run --project src/Gateways/YarpGateway/YarpGateway.csproj --launch-profil
 
 See [Gateway integration notes](docs/gateway.md) for routes, validation, and remaining authentication integration work.
 
+For the Windows server with Identity on port 5001, see [Gateway on IIS](docs/iis-gateway.md).
+
 Database changes will be supplied as SQL scripts for manual execution.

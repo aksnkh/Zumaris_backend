@@ -6,6 +6,7 @@ using Identity.Application.Features.Auth;
 using Identity.Infrastructure.Persistence;
 using Identity.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -16,6 +17,17 @@ var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtS
 jwt.Validate();
 builder.Services.AddSingleton(jwt);
 builder.Services.AddProblemDetails();
+// IIS Gateway and Identity share this machine. Trust forwarding only from loopback,
+// so HTTPS terminated by Gateway is preserved without accepting arbitrary client headers.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+    options.KnownProxies.Add(System.Net.IPAddress.Loopback);
+    options.KnownProxies.Add(System.Net.IPAddress.IPv6Loopback);
+});
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -84,6 +96,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+app.UseForwardedHeaders();
 // Never return connection details, SQL errors or stack traces to clients (including Development).
 app.UseExceptionHandler();
 app.UseSwagger();

@@ -7,8 +7,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Zumaris.ServiceRequests.Application;
 using Zumaris.ServiceRequests.Infrastructure;
+using Zumaris.ServiceRequests.Api.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.Configure<IISServerOptions>(options => options.MaxRequestBodySize = 44 * 1024 * 1024);
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables().AddCommandLine(args);
 var identityUri = new Uri(builder.Configuration["Identity:BaseUrl"] ?? "http://127.0.0.1:5001/");
@@ -21,6 +23,10 @@ builder.Services.AddSingleton(schedule);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IServiceRequestRepository, ServiceRequestAdoNetRepository>();
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
+builder.Services.AddScoped<IRequestLifecycleRepository, RequestLifecycleAdoNetRepository>();
+builder.Services.AddScoped<IRequestManagementService, RequestManagementService>();
+builder.Services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();
+builder.Services.AddScoped<ManagementExceptionFilter>();
 builder.Services.AddHttpClient<IIdentitySessionValidator, IdentitySessionValidator>(client =>
 {
     client.BaseAddress = identityUri;

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="15.0.0" />
     <ProjectReference Include="../ServiceRequest.Application/ServiceRequest.Application.csproj" />
     <ProjectReference Include="../ServiceRequest.Domain/ServiceRequest.Domain.csproj" />
   </ItemGroup>

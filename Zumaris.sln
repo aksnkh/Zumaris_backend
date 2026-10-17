@@ -51,6 +51,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "service-request", "service-request", "{1643C0FD-0258-4971-966B-BE43767106CA}"
 	ProjectSection(SolutionItems) = preProject
 		database\service-request\001_service_requests.sql = database\service-request\001_service_requests.sql
+		database\service-request\002_request_lifecycle.sql = database\service-request\002_request_lifecycle.sql
 	EndProjectSection
 EndProject
 Global

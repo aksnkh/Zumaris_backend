@@ -1,4 +1,6 @@
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 44 * 1024 * 1024);
+builder.Services.Configure<IISServerOptions>(options => options.MaxRequestBodySize = 44 * 1024 * 1024);
 
 // ۱. رجیستر کردن YARP
 builder.Services.AddReverseProxy()

@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [string]$IdentityPublishPath,
-    [string]$GoogleClientId
+    [string]$GoogleClientId = '214953659361-vafeubjnb02gp0177irkbehk4lvveotk.apps.googleusercontent.com'
 )
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($IdentityPublishPath)) {

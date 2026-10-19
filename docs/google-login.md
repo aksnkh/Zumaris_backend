@@ -6,6 +6,16 @@
 
 ## آماده‌سازی سرور
 
+روش ساده‌تر برای ثبت تنظیمات: روی سرور، فایل `scripts/Initialize-IdentityGoogleConfig.ps1` را اجرا کنید. اسکریپت مسیر پوشهٔ منتشرشدهٔ Identity و مقدار `AUTH_GOOGLE_ID` فرانت را می‌پرسد؛ کلید داخلی را خودش می‌سازد و تنظیمات را در `appsettings.json` همان پوشه ذخیره می‌کند. مقادیر فعلی دیتابیس و JWT و کلید داخلی معتبر قبلی حفظ می‌شوند. سپس Application Pool مربوط به Identity را در IIS دوباره راه‌اندازی کنید. این فایل تنظیمات سرور را هنگام انتشارهای بعدی حفظ کنید؛ داخل Git قرار ندهید. اگر متغیرهای محیطی هم‌نام قبلاً تعریف شده‌اند، آن‌ها بر تنظیمات فایل اولویت دارند. این روش جایگزین مرحلهٔ ۳ زیر است؛ جدول همچنان باید دستی ساخته شود.
+
+<div dir="ltr" align="left">
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Initialize-IdentityGoogleConfig.ps1
+```
+
+</div>
+
 1. در اسکیما `zumaris_identity` فایل `database/identity/002_google_external_logins.sql` را دستی اجرا کنید. این فایل فقط جدول نگاشت حساب گوگل را ایجاد می‌کند؛ ALTER مربوط به nullable شدن `identity_users.password_hash` که قبلاً انجام داده‌اید تکرار نمی‌شود. جدول‌های نشست اسکریپت `001_auth_sessions.sql` نیز باید موجود باشند. هیچ migration خودکاری اجرا نمی‌شود.
 2. کاربر اتصال Identity باید دسترسی SELECT و INSERT روی `identity_users` و `identity_external_logins` و دسترسی‌های قبلی جدول‌های نشست را داشته باشد. برای ورود گوگل stored procedure جدید لازم نیست.
 3. متغیرهای محیطی **Identity.Api** را تنظیم کنید و Application Pool را restart کنید:

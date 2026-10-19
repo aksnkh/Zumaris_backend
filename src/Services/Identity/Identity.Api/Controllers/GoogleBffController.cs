@@ -46,33 +46,40 @@ public sealed class BffOnlyFilter(IConfiguration configuration) : IAuthorization
 }
 
 [ApiController]
-[ApiExplorerSettings(IgnoreApi = true)]
 [ServiceFilter(typeof(BffOnlyFilter))]
 [RequestSizeLimit(32768)]
 [Route("api/auth")]
 public sealed class GoogleBffController(GoogleAuthService google, IAuthService authService) : ControllerBase
 {
     [HttpPost("google")]
-    public async Task<IActionResult> GoogleLogin(GoogleLoginRequest request, CancellationToken ct)
+    [ProducesResponseType(typeof(BffTokenResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GoogleLogin(GoogleLoginRequest request,
+        [FromHeader(Name = "X-Zumaris-Bff-Key"), Required] string bffKey, CancellationToken ct)
     {
         var (response, refresh) = await google.LoginAsync(request.IdToken, ct);
         return Ok(new BffTokenResponse(response, refresh));
     }
     [Authorize]
     [HttpPost("google/link")]
-    public async Task<IActionResult> Link(GoogleLoginRequest request, CancellationToken ct)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Link(GoogleLoginRequest request,
+        [FromHeader(Name = "X-Zumaris-Bff-Key"), Required] string bffKey, CancellationToken ct)
     {
         await google.LinkAsync(Guid.Parse(User.FindFirst("sub")!.Value), request.IdToken, ct);
         return NoContent();
     }
     [HttpPost("bff/refresh")]
-    public async Task<IActionResult> Refresh(BffRefreshRequest request, CancellationToken ct)
+    [ProducesResponseType(typeof(BffTokenResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Refresh(BffRefreshRequest request,
+        [FromHeader(Name = "X-Zumaris-Bff-Key"), Required] string bffKey, CancellationToken ct)
     {
         var (response, refresh) = await authService.RefreshAsync(request.RefreshToken, ct);
         return Ok(new BffTokenResponse(response, refresh));
     }
     [HttpPost("bff/logout")]
-    public async Task<IActionResult> Logout(BffRefreshRequest request, CancellationToken ct)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Logout(BffRefreshRequest request,
+        [FromHeader(Name = "X-Zumaris-Bff-Key"), Required] string bffKey, CancellationToken ct)
     {
         await authService.LogoutAsync(request.RefreshToken, ct);
         return NoContent();

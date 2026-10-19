@@ -11,6 +11,24 @@ namespace Identity.Tests;
 
 public sealed class GoogleLoginTests
 {
+    [Fact]
+    public async Task Swagger_exposes_google_and_bff_routes_with_required_key_header()
+    {
+        using var f = new AuthFactory(); using var c = f.NewClient();
+        using var response = await c.GetAsync("/swagger/v1/swagger.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var paths = document.RootElement.GetProperty("paths");
+        foreach (var path in new[] { "/api/auth/google", "/api/auth/google/link", "/api/auth/bff/refresh", "/api/auth/bff/logout" })
+        {
+            var operation = paths.GetProperty(path).GetProperty("post");
+            var header = Assert.Single(operation.GetProperty("parameters").EnumerateArray(),
+                p => p.GetProperty("name").GetString() == "X-Zumaris-Bff-Key");
+            Assert.Equal("header", header.GetProperty("in").GetString());
+            Assert.True(header.GetProperty("required").GetBoolean());
+        }
+    }
+
     private static HttpClient Client(AuthFactory f)
     {
         var client = f.NewClient(); client.DefaultRequestHeaders.Add("X-Zumaris-Bff-Key", AuthFactory.BffKey); return client;

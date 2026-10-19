@@ -9,6 +9,7 @@ if ([string]::IsNullOrWhiteSpace($IdentityPublishPath)) {
     $IdentityPublishPath = Read-Host 'Enter the published Identity folder path (contains Identity.Api.dll)'
 }
 $IdentityPublishPath = $IdentityPublishPath.Trim().Trim('"')
+$IdentityPublishPath = [System.IO.Path]::GetFullPath($IdentityPublishPath)
 $settingsPath = Join-Path $IdentityPublishPath 'appsettings.json'
 if (!(Test-Path (Join-Path $IdentityPublishPath 'Identity.Api.dll')) -or !(Test-Path $settingsPath)) {
     throw 'Choose the published Identity folder containing Identity.Api.dll and appsettings.json.'
@@ -37,7 +38,9 @@ $json = $settings | ConvertTo-Json -Depth 100
 $temporaryPath = Join-Path $IdentityPublishPath ([Guid]::NewGuid().ToString('N') + '.tmp')
 try {
     [System.IO.File]::WriteAllText($temporaryPath, $json, [System.Text.UTF8Encoding]::new($false))
-    [System.IO.File]::Replace($temporaryPath, $settingsPath, $null)
+    # Windows PowerShell converts $null to an empty string for a string parameter.
+    # Replace treats that empty backup path as invalid; pass an actual null string.
+    [System.IO.File]::Replace($temporaryPath, $settingsPath, [System.Management.Automation.Language.NullString]::Value)
 } finally {
     if (Test-Path -LiteralPath $temporaryPath) { Remove-Item -LiteralPath $temporaryPath }
 }

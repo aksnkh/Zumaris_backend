@@ -7,3 +7,6 @@ The configuration dependencies target stable .NET 8 packages. API, Application, 
 JWT/session behavior has since been revised. See [JWT setup, client contract and validation](jwt.md). Run the supplied [manual MySQL migration](../database/identity/001_auth_sessions.sql) before using login/session features in this version. The migration was not executed during development.
 
 The previous password logging and missing refresh user mapping have been removed with the session redesign. Existing connection strings, signing values and password-hash format are unchanged. Nullable initialization warnings in the supplied shared response library remain unrelated to this change.
+
+
+راهنمای ورود Google و تنظیمات ارتباط سرور Next.js: [google-login.md](google-login.md).

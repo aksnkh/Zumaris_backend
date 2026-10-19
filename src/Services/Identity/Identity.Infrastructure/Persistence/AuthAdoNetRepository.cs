@@ -39,7 +39,7 @@ public sealed class AuthAdoNetRepository : IAuthRepository
                 Id = reader.GetGuid(reader.GetOrdinal("id")),
                 UserName = reader.GetString("user_name"),
                 Email = reader.GetString("email"),
-                PasswordHash = reader.GetString("password_hash"),
+                PasswordHash = reader.IsDBNull(reader.GetOrdinal("password_hash")) ? null : reader.GetString("password_hash"),
                 IsActive = reader.GetBoolean("is_active")
             };
         }

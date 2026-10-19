@@ -34,6 +34,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "identity", "identity", "{C48A0D9E-0EAC-416C-A9D2-EA8A20BA6D04}"
 	ProjectSection(SolutionItems) = preProject
 		database\identity\001_auth_sessions.sql = database\identity\001_auth_sessions.sql
+		database\identity\002_google_external_logins.sql = database\identity\002_google_external_logins.sql
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ServiceRequest", "ServiceRequest", "{20C96CEE-9A06-4562-AA61-033CAF1CF99C}"

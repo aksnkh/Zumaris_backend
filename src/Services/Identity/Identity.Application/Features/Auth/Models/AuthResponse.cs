@@ -6,5 +6,6 @@ public sealed record AuthResponse(
     string UserName
 )
 {
+    public Guid UserId { get; init; }
     public DateTime RefreshTokenExpiresAtUtc { get; init; }
 }

@@ -54,6 +54,11 @@ builder.Services.AddScoped<ISessionRepository, SessionAdoNetRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserSessionIssuer, UserSessionIssuer>();
+builder.Services.AddScoped<IGoogleIdentityValidator, GoogleIdentityValidator>();
+builder.Services.AddScoped<IExternalLoginRepository, ExternalLoginAdoNetRepository>();
+builder.Services.AddScoped<GoogleAuthService>();
+builder.Services.AddScoped<BffOnlyFilter>();
 
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 {

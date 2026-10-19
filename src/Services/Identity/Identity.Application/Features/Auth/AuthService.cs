@@ -11,7 +11,7 @@ public sealed class AuthService(
     ISessionRepository sessions,
     IPasswordHasher passwords,
     ITokenService tokens,
-    JwtSettings settings) : IAuthService
+    IUserSessionIssuer issuer) : IAuthService
 {
     private static UnauthorizedAccessException InvalidToken() => new("نشست نامعتبر یا منقضی شده است؛ دوباره وارد شوید.");
 
@@ -21,17 +21,10 @@ public sealed class AuthService(
         if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
             throw new UnauthorizedAccessException("نام کاربری یا کلمه عبور نادرست است.");
         var user = await users.GetUserByUsernameAsync(request.UserName.Trim(), cancellationToken);
-        if (user is null || !user.IsActive || !passwords.Verify(request.Password, user.PasswordHash))
+        if (user is null || !user.IsActive || string.IsNullOrEmpty(user.PasswordHash) || !passwords.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("نام کاربری یا کلمه عبور نادرست است.");
 
-        var now = DateTime.UtcNow;
-        var session = new AuthSession(Guid.NewGuid(), user.Id, user.UserName, now,
-            now.AddDays(settings.RefreshTokenExpirationDays), null);
-        var refreshToken = tokens.GenerateRefreshToken();
-        var accessToken = tokens.CreateAccessToken(user, session.Id, session.ExpiresAtUtc);
-        await sessions.CreateAsync(session, tokens.HashRefreshToken(refreshToken), cancellationToken);
-        return (new AuthResponse(accessToken.Token, accessToken.ExpiresAtUtc, user.UserName)
-            { RefreshTokenExpiresAtUtc = session.ExpiresAtUtc }, refreshToken);
+        return await issuer.IssueAsync(user, cancellationToken);
     }
 
     public async Task<(AuthResponse Response, string RefreshToken)> RefreshAsync(
@@ -56,7 +49,7 @@ public sealed class AuthService(
         if (!await sessions.RotateAsync(session.Id, oldHash, tokens.HashRefreshToken(newRefreshToken), cancellationToken))
             throw InvalidToken();
         return (new AuthResponse(accessToken.Token, accessToken.ExpiresAtUtc, user.UserName)
-            { RefreshTokenExpiresAtUtc = session.ExpiresAtUtc }, newRefreshToken);
+            { UserId = user.Id, RefreshTokenExpiresAtUtc = session.ExpiresAtUtc }, newRefreshToken);
     }
 
     public async Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default)

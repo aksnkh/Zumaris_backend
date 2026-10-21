@@ -10,6 +10,11 @@
     <ProjectReference Include="../Property.Domain/Property.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="MySqlConnector" Version="2.6.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
     <Folder Include="Persistence/" />
     <Folder Include="Integrations/" />
   </ItemGroup>

@@ -1,17 +1,17 @@
 # Property
 
-Scaffold only: .NET 8 / Clean Architecture. No business endpoints, authentication wiring or persistence implementation yet.
+.NET 8 / Clean Architecture / direct parameterized MySQL, without an ORM.
 
-- Domain: business entities and rules; no dependencies on outer layers.
-- Application: use cases and repository/integration contracts; references Domain.
-- Infrastructure: future MySQL stored procedures/direct SQL and integrations; references Application and Domain. No ORM.
-- Api: HTTP composition root; references Application and Infrastructure.
-- Development: http://localhost:5107/swagger
-- Liveness: GET /health (process check only, not business/database readiness).
-- Planned Gateway prefix: /property (not registered until implementation).
-- Planned MySQL schema: zumaris_property (not created).
-- Suggested future IIS HTTP port: 5003 (not configured).
+Implemented: authenticated property CRUD, self-declared user-property roles, per-user current property selection and form options. Identity JWT and live session validation are required. Soft archive and optimistic version checks preserve history.
 
-No database scripts run automatically. Add manual SQL migrations under database/property.
-Configure Identity JWT/session validation and resource permissions before exposing business endpoints.
-See docs/service-architecture.md for ownership and cross-service boundaries.
+- Domain: property types, declaration roles and immutable records.
+- Application: validation, use cases and repository contracts.
+- Infrastructure: MySQL transactions and the Identity session HTTP client.
+- Api: controllers, JWT/session authentication, CORS and Swagger.
+- Development: HTTP 5107; Identity HTTP 5105.
+- Production IIS: internal HTTP 5003; Identity HTTP 5001.
+- Public Gateway prefix: `/property`.
+- MySQL schema: `zumaris_property`; manually apply `database/property/001_properties.sql`.
+- Configure existing Identity credentials/JWT with `scripts/Initialize-PropertyLocalConfig.ps1`; the local JSON is ignored by Git.
+
+See [setup and API instructions](../../../docs/property.md) and [service ownership](../../../docs/service-architecture.md).

@@ -31,6 +31,7 @@ app.UseCors();
         // مسیر JSON هر میکروسرویس از دل Gateway صدا زده می‌شود:
         options.SwaggerEndpoint("/identity/swagger/v1/swagger.json", "Identity Service");
         options.SwaggerEndpoint("/service-request/swagger/v1/swagger.json", "Service Request Service");
+        options.SwaggerEndpoint("/property/swagger/v1/swagger.json", "Property Service");
         //options.SwaggerEndpoint("/home-passport/swagger/v1/swagger.json", "Home Passport Service");
         //options.SwaggerEndpoint("/billing/swagger/v1/swagger.json", "Billing Service");
         //options.SwaggerEndpoint("/booking/swagger/v1/swagger.json", "Booking Service");

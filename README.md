@@ -6,7 +6,7 @@ Monorepo for Zumaris microservices targeting .NET 8 and MySQL, using stored proc
 
 Install Visual Studio 2022 version 17.8 or later with the .NET 8 SDK and the ASP.NET and web development workload, then open `Zumaris.sln`.
 
-The solution contains Identity, Service Request, YARP Gateway and a shared response library. Each service has its own solution folders. To run Identity alone, right-click `Identity.Api` and select **Set as Startup Project**. Select the `http` launch profile and press F5 to open Swagger.
+The solution contains Identity, Service Request, YARP Gateway, a shared response library, and ten four-layer service scaffolds. See [service ownership and scaffold setup](docs/service-architecture.md) for the complete inventory and development ports. Each service has its own solution folders. To run Identity alone, right-click `Identity.Api` and select **Set as Startup Project**. Select the `http` launch profile and press F5 to open Swagger.
 
 Before using login/session features, manually run [database/identity/001_auth_sessions.sql](database/identity/001_auth_sessions.sql) in the existing Identity database. See [JWT instructions](docs/jwt.md) for the client changes, session endpoints, and deployment order. This script is not run automatically.
 

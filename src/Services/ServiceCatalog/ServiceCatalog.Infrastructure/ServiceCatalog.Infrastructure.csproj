@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Zumaris.ServiceCatalog.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ServiceCatalog.Application/ServiceCatalog.Application.csproj" />
+    <ProjectReference Include="../ServiceCatalog.Domain/ServiceCatalog.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Persistence/" />
+    <Folder Include="Integrations/" />
+  </ItemGroup>
+</Project>

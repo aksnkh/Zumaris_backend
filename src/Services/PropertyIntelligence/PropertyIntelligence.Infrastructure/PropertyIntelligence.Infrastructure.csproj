@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Zumaris.PropertyIntelligence.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../PropertyIntelligence.Application/PropertyIntelligence.Application.csproj" />
+    <ProjectReference Include="../PropertyIntelligence.Domain/PropertyIntelligence.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Persistence/" />
+    <Folder Include="Integrations/" />
+  </ItemGroup>
+</Project>

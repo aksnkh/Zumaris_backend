@@ -1,0 +1,12 @@
+[
+  { "name": "Property", "route": "property", "schema": "zumaris_property", "developmentPort": 5107, "suggestedIisPort": 5003 },
+  { "name": "Document", "route": "document", "schema": "zumaris_document", "developmentPort": 5108, "suggestedIisPort": 5004 },
+  { "name": "Maintenance", "route": "maintenance", "schema": "zumaris_maintenance", "developmentPort": 5109, "suggestedIisPort": 5005 },
+  { "name": "ServiceCatalog", "route": "service-catalog", "schema": "zumaris_service_catalog", "developmentPort": 5110, "suggestedIisPort": 5006 },
+  { "name": "Provider", "route": "provider", "schema": "zumaris_provider", "developmentPort": 5111, "suggestedIisPort": 5007 },
+  { "name": "Billing", "route": "billing", "schema": "zumaris_billing", "developmentPort": 5112, "suggestedIisPort": 5008 },
+  { "name": "Notification", "route": "notification", "schema": "zumaris_notification", "developmentPort": 5113, "suggestedIisPort": 5009 },
+  { "name": "PropertyIntelligence", "route": "property-intelligence", "schema": "zumaris_property_intelligence", "developmentPort": 5114, "suggestedIisPort": 5010 },
+  { "name": "WebsiteBuilder", "route": "website-builder", "schema": "zumaris_website_builder", "developmentPort": 5115, "suggestedIisPort": 5011 },
+  { "name": "Integration", "route": "integration", "schema": "zumaris_integration", "developmentPort": 5116, "suggestedIisPort": 5012 }
+]

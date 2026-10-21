@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Zumaris.Property.Application</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Property.Domain/Property.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Abstractions/" />
+    <Folder Include="Features/" />
+  </ItemGroup>
+</Project>

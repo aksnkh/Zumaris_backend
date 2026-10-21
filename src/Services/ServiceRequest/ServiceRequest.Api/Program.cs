@@ -23,6 +23,8 @@ builder.Services.AddSingleton(schedule);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IServiceRequestRepository, ServiceRequestAdoNetRepository>();
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
+builder.Services.AddScoped<IServiceHistoryRepository, ServiceHistoryAdoNetRepository>();
+builder.Services.AddScoped<IServiceHistoryService, ServiceHistoryService>();
 builder.Services.AddScoped<IRequestLifecycleRepository, RequestLifecycleAdoNetRepository>();
 builder.Services.AddScoped<IRequestManagementService, RequestManagementService>();
 builder.Services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();

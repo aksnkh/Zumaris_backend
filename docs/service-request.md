@@ -103,3 +103,6 @@ dotnet publish src/Services/ServiceRequest/ServiceRequest.Api/ServiceRequest.Api
 ## بررسی بعد از اجرای SQL توسط شما
 
 با یک کاربر ثبت‌شده Login کنید، POST را با Bearer و Idempotency-Key بفرستید و 201 بگیرید. در service_requests یک ردیف Submitted و در history یک رویداد اولیه باید وجود داشته باشد. همان کلید/بدنه را دوباره بفرستید: شناسه همان و تعداد ردیف‌ها ثابت باشد. بدنه متفاوت باید 409 بدهد. پس از Logout، همان Bearer نباید ثبت جدید انجام دهد. در محیط آزمایشی، شکست درج history باید درج درخواست را هم rollback کند.
+
+
+راهنمای API سوابق خدمات و اسکریپت جدید دیتابیس: [service-history.md](service-history.md).

@@ -18,6 +18,7 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
     public const string Key = "test-only-service-request-key-do-not-use-in-production-1234";
     public Guid UserId { get; } = Guid.NewGuid();
     public MemoryRequests Repository { get; } = new();
+    public HistoryRepositoryFake HistoryRepository { get; } = new();
     public SessionValidator Validator { get; } = new();
     public TestClock Clock { get; } = new();
     public string UploadRoot { get; } = Path.Combine(Path.GetTempPath(), "zumaris-test-photos-" + Guid.NewGuid().ToString("N"));
@@ -29,6 +30,8 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IServiceRequestRepository>(); services.RemoveAll<IIdentitySessionValidator>();
+            services.RemoveAll<IServiceHistoryRepository>();
+            services.AddSingleton<IServiceHistoryRepository>(HistoryRepository);
             services.RemoveAll<TimeProvider>(); services.RemoveAll<IRequestLifecycleRepository>();
             services.AddSingleton<IServiceRequestRepository>(Repository);
             services.AddSingleton<IRequestLifecycleRepository>(Repository);

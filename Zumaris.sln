@@ -163,6 +163,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "property", "property", "{7D
 		database\property\001_properties.sql = database\property\001_properties.sql
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceCatalog.Tests", "tests\ServiceCatalog.Tests\ServiceCatalog.Tests.csproj", "{0EC9FE01-2AED-40F6-A5D3-359A8B478046}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -384,6 +386,10 @@ Global
 		{6B89195E-B10F-47E8-872A-507A3EFDED89}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6B89195E-B10F-47E8-872A-507A3EFDED89}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6B89195E-B10F-47E8-872A-507A3EFDED89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0EC9FE01-2AED-40F6-A5D3-359A8B478046}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0EC9FE01-2AED-40F6-A5D3-359A8B478046}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0EC9FE01-2AED-40F6-A5D3-359A8B478046}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0EC9FE01-2AED-40F6-A5D3-359A8B478046}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{7DA3B316-2A89-4554-A294-84B7369E304A} = {40A53A23-4937-4AFC-A3F4-5BDBF1CE4A42}
@@ -457,5 +463,6 @@ Global
 		{6DCABB56-3ABA-486D-B812-31550CF496D3} = {61A1F5E2-E4D2-45A0-8A72-93882618A28C}
 		{D2D2085D-D4CB-4FE4-A150-65BFBA7A1B7E} = {61A1F5E2-E4D2-45A0-8A72-93882618A28C}
 		{6B89195E-B10F-47E8-872A-507A3EFDED89} = {B772D164-4591-451E-BDB8-D0B2DCA20893}
+		{0EC9FE01-2AED-40F6-A5D3-359A8B478046} = {B772D164-4591-451E-BDB8-D0B2DCA20893}
 	EndGlobalSection
 EndGlobal

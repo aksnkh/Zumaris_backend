@@ -1,3 +1,3 @@
 # ServiceCatalog database
 
-Reserved for manual MySQL migration scripts. Planned schema: zumaris_service_catalog. No schema or tables have been created. Do not access another service's schema directly.
+Manually run `001_areas.sql` to create and seed the 19 property areas. Runtime access is SELECT only; no SQL is executed automatically. See `docs/service-catalog-areas.md` for deployment and verification.

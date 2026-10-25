@@ -10,3 +10,9 @@ The previous password logging and missing refresh user mapping have been removed
 
 
 راهنمای ورود Google و تنظیمات ارتباط سرور Next.js: [google-login.md](google-login.md).
+
+## MySQL session regression test
+
+`MySqlSessionTests` covers GUID materialization, session lookup/listing, refresh rotation and reuse revocation with the real connector. Set `ZUMARIS_IDENTITY_MYSQL_TEST_CONNECTION` only to a disposable loopback MySQL 8 database named `zumaris_identity_test`, then run `dotnet test tests/Identity.Tests/Identity.Tests.csproj`. The test applies `database/identity/001_auth_sessions.sql` only to that isolated schema and cleans up its session. Without the variable this one test is explicitly skipped; never point it at the application database.
+
+Session and external-login identifiers are read through `GetGuid` to support MySqlConnector's automatic CHAR(36)-to-Guid conversion. Using `GetString` for these columns can throw InvalidCastException on production refresh.

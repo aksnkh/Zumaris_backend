@@ -31,6 +31,7 @@ public sealed class PropertiesController(IPropertyService service) : ControllerB
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
     [HttpPost]
     [ProducesResponseType(typeof(PropertyDto),StatusCodes.Status201Created)]
+   
     public async Task<IActionResult> Create(CreateProperty input,CancellationToken ct)
     {
         var result=await service.CreateAsync(UserId,input,ct);
@@ -38,13 +39,16 @@ public sealed class PropertiesController(IPropertyService service) : ControllerB
     }
     [HttpGet]
     [ProducesResponseType(typeof(PropertyPage),StatusCodes.Status200OK)]
+    
     public async Task<IActionResult> List([FromQuery]int pageNumber=1,[FromQuery]int pageSize=20,CancellationToken ct=default) =>
         Ok(await service.ListAsync(UserId,pageNumber,pageSize,ct));
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(PropertyDto),StatusCodes.Status200OK)]
+    
     public async Task<IActionResult> Get(Guid id,CancellationToken ct) => Ok(await service.GetAsync(UserId,id,ct));
     [HttpGet("current")]
     [ProducesResponseType(typeof(PropertyDto),StatusCodes.Status200OK)]
+    
     public async Task<IActionResult> Current(CancellationToken ct) => Ok(await service.GetCurrentAsync(UserId,ct));
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(PropertyDto),StatusCodes.Status200OK)]

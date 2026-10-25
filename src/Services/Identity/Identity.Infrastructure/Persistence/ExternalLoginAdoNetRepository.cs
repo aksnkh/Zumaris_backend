@@ -20,7 +20,7 @@ public sealed class ExternalLoginAdoNetRepository(IConfiguration configuration) 
     }
     private static User Read(MySqlDataReader reader) => new()
     {
-        Id = Guid.Parse(reader.GetString("id")), UserName = reader.GetString("user_name"), Email = reader.GetString("email"),
+        Id = reader.GetGuid(reader.GetOrdinal("id")), UserName = reader.GetString("user_name"), Email = reader.GetString("email"),
         PasswordHash = reader.IsDBNull(reader.GetOrdinal("password_hash")) ? null : reader.GetString("password_hash"),
         IsActive = reader.GetBoolean("is_active") && !reader.GetBoolean("is_deleted")
     };

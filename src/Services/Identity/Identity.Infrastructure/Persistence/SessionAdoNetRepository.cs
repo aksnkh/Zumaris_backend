@@ -27,7 +27,7 @@ public sealed class SessionAdoNetRepository(IConfiguration configuration) : ISes
     }
 
     private static AuthSession ReadSession(MySqlDataReader reader) => new(
-        Guid.Parse(reader.GetString("id")), Guid.Parse(reader.GetString("user_id")),
+        reader.GetGuid(reader.GetOrdinal("id")), reader.GetGuid(reader.GetOrdinal("user_id")),
         reader.GetString("user_name"), DateTime.SpecifyKind(reader.GetDateTime("created_at"), DateTimeKind.Utc),
         DateTime.SpecifyKind(reader.GetDateTime("expires_at"), DateTimeKind.Utc),
         reader.IsDBNull(reader.GetOrdinal("revoked_at")) ? null :

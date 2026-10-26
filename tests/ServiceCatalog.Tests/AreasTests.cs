@@ -58,7 +58,7 @@ public class AreasTests
     [InlineData("file.html")]
     [InlineData("/tmp/icon.png")]
     public void Icon_names_cannot_reference_paths_or_non_image_files(string name) =>
-        Assert.False(AreaIconFiles.IsValidName(name));
+        Assert.False(CatalogIconFiles.IsValidName(name));
     private class Factory : WebApplicationFactory<Program>
     {
         public string IconDirectory { get; } = Path.Combine(Path.GetTempPath(),"area-icons-" + Guid.NewGuid());

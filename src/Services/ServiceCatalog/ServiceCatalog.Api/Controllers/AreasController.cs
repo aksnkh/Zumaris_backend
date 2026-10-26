@@ -16,7 +16,7 @@ public sealed class AreasController(IAreaRepository areas, IConfiguration config
     {
         var prefix = (configuration["AreaIcons:PublicPath"] ?? "/service-catalog/api/areas/icons").TrimEnd('/');
         return Ok((await areas.ListAsync(cancellationToken)).Select(area =>
-            new AreaResponse(area.Id, area.Name, AreaIconFiles.IsValidName(area.Icon)
+            new AreaResponse(area.Id, area.Name, CatalogIconFiles.IsValidName(area.Icon)
                 ? prefix + "/" + Uri.EscapeDataString(area.Icon!) : null)).ToArray());
     }
 }

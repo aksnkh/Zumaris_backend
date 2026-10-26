@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace Zumaris.ServiceCatalog.Api.Controllers;
 
-public static class AreaIconFiles
+public static class CatalogIconFiles
 {
     public static string? ContentType(string? name) => Path.GetExtension(name ?? "").ToLowerInvariant() switch
     {
@@ -23,7 +23,7 @@ public sealed class AreaIconsController(IConfiguration configuration) : Controll
     [HttpGet("{fileName}")]
     public IActionResult Get(string fileName)
     {
-        if (!AreaIconFiles.IsValidName(fileName)) return NotFound();
+        if (!CatalogIconFiles.IsValidName(fileName)) return NotFound();
         var root = configuration["AreaIcons:Directory"];
         if (string.IsNullOrWhiteSpace(root) || !Path.IsPathFullyQualified(root)) return NotFound();
         var path = Path.Combine(root, fileName);
@@ -31,6 +31,6 @@ public sealed class AreaIconsController(IConfiguration configuration) : Controll
         if (!info.Exists || (info.Attributes & FileAttributes.ReparsePoint) != 0) return NotFound();
         Response.Headers["X-Content-Type-Options"] = "nosniff";
         Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
-        return PhysicalFile(path, AreaIconFiles.ContentType(fileName)!, enableRangeProcessing: false);
+        return PhysicalFile(path, CatalogIconFiles.ContentType(fileName)!, enableRangeProcessing: false);
     }
 }

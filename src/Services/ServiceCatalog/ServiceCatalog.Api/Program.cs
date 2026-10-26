@@ -18,6 +18,7 @@ if (!identityUri.IsAbsoluteUri || (identityUri.Scheme != "https" && !(identityUr
     throw new InvalidOperationException("Identity:BaseUrl must be HTTPS or loopback HTTP, with a trailing slash and no credentials.");
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAreaRepository,AreaAdoNetRepository>();
+builder.Services.AddScoped<ICategoryRepository,CategoryAdoNetRepository>();
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpClient<IIdentitySessionValidator, IdentitySessionValidator>(client =>
 {

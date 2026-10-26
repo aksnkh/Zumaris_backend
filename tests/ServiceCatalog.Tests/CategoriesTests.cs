@@ -18,6 +18,20 @@ using Zumaris.ServiceCatalog.Api.Controllers;
 public class CategoriesTests
 {
     [Fact]
+    public async Task Get_by_id_requires_auth_and_returns_one_category_or_404()
+    {
+        using var factory = new Factory();
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/categories/1")).StatusCode);
+        client.DefaultRequestHeaders.Add("X-Test-User","yes");
+        Assert.Equal(new CategoryResponse(1,"Plumbing","/service-catalog/api/categories/icons/1.png"),
+            await client.GetFromJsonAsync<CategoryResponse>("/api/categories/1"));
+        Assert.Equal(new CategoryResponse(17,"Other",null),
+            await client.GetFromJsonAsync<CategoryResponse>("/api/categories/17"));
+        foreach (var id in new[] {"999","0","-1","invalid"})
+            Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync("/api/categories/"+id)).StatusCode);
+    }
+    [Fact]
     public async Task Read_only_contract_requires_authentication_and_returns_repository_data()
     {
         using var factory = new Factory();
@@ -76,6 +90,8 @@ public class CategoriesTests
     }
     private class Repository : ICategoryRepository
     {
+        public async Task<Category?> GetByIdAsync(int id, CancellationToken ct) =>
+            (await ListAsync(ct)).SingleOrDefault(category => category.Id == id);
         public Task<IReadOnlyList<Category>> ListAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Category>>(new[] { new Category(1,"Plumbing","1.png"), new Category(17,"Other") });
     }

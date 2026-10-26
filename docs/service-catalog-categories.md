@@ -12,6 +12,10 @@ ServiceCatalog owns work categories. `GET /service-catalog/api/categories` retur
 ]
 ```
 
+## Get one category
+
+`GET /service-catalog/api/categories/{id}` returns one object with the same `id`, `name` and `iconUrl` fields as the list. For example `/service-catalog/api/categories/1` returns Plumbing. A missing, nonpositive or noninteger ID returns 404. Authentication is identical to the list, including the explicitly enabled temporary test token. The query selects only the requested ID with a bound SQL parameter. No SQL migration or Gateway update is needed; republish ServiceCatalog.Api.
+
 ## Manual SQL and IIS
 
 1. Run `database/service-catalog/003_categories.sql` manually as root/admin. It creates `zumaris_service_catalog.categories` and seeds the 17 agreed IDs/names with filenames `1.png`–`17.png`. It never runs automatically. An unchanged rerun preserves existing records; inspect the final SELECT for conflicts if data already exists. The runtime account requires SELECT on this table.

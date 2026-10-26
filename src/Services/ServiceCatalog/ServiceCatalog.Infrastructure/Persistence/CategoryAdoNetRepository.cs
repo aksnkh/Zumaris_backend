@@ -6,6 +6,20 @@ namespace Zumaris.ServiceCatalog.Infrastructure.Persistence;
 
 public sealed class CategoryAdoNetRepository(IConfiguration configuration) : ICategoryRepository
 {
+    public async Task<Category?> GetByIdAsync(int id, CancellationToken cancellationToken)
+    {
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("DefaultConnection is required.");
+        await using var connection = new MySqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new MySqlCommand("SELECT id, name, icon FROM categories WHERE id = @id", connection);
+        command.Parameters.AddWithValue("@id", id);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? new Category(reader.GetInt32(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2))
+            : null;
+    }
+
     public async Task<IReadOnlyList<Category>> ListAsync(CancellationToken cancellationToken)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection")

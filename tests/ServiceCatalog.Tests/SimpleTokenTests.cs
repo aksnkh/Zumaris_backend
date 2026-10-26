@@ -31,7 +31,7 @@ public class SimpleTokenTests
         using var factory = new Factory(environment,enabled);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         if (token is not null) client.DefaultRequestHeaders.Authorization = new("Bearer",token);
-        foreach (var path in new[] {"/api/areas","/api/categories"})
+        foreach (var path in new[] {"/api/areas","/api/categories","/api/categories/1"})
             Assert.Equal((HttpStatusCode)status,(await client.GetAsync(path)).StatusCode);
     }
 
@@ -73,6 +73,8 @@ public class SimpleTokenTests
     }
     private class Categories : ICategoryRepository
     {
+        public async Task<Category?> GetByIdAsync(int id, CancellationToken ct) =>
+            (await ListAsync(ct)).SingleOrDefault(category => category.Id == id);
         public Task<IReadOnlyList<Category>> ListAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<Category>>(new[] {new Category(1,"Plumbing")});
     }
     private class Validator(bool active) : IIdentitySessionValidator

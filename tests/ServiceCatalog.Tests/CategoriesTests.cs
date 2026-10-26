@@ -18,12 +18,11 @@ using Zumaris.ServiceCatalog.Api.Controllers;
 public class CategoriesTests
 {
     [Fact]
-    public async Task Get_by_id_requires_auth_and_returns_one_category_or_404()
+    public async Task Get_by_id_is_public_and_returns_one_category_or_404()
     {
         using var factory = new Factory();
         using var client = factory.CreateClient();
-        Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/categories/1")).StatusCode);
-        client.DefaultRequestHeaders.Add("X-Test-User","yes");
+        Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/categories")).StatusCode);
         Assert.Equal(new CategoryResponse(1,"Plumbing","/service-catalog/api/categories/icons/1.png"),
             await client.GetFromJsonAsync<CategoryResponse>("/api/categories/1"));
         Assert.Equal(new CategoryResponse(17,"Other",null),

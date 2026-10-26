@@ -14,7 +14,7 @@ ServiceCatalog owns work categories. `GET /service-catalog/api/categories` retur
 
 ## Get one category
 
-`GET /service-catalog/api/categories/{id}` returns one object with the same `id`, `name` and `iconUrl` fields as the list. For example `/service-catalog/api/categories/1` returns Plumbing. A missing, nonpositive or noninteger ID returns 404. Authentication is identical to the list, including the explicitly enabled temporary test token. The query selects only the requested ID with a bound SQL parameter. No SQL migration or Gateway update is needed; republish ServiceCatalog.Api.
+`GET /service-catalog/api/categories/{id}` returns one object with the same `id`, `name` and `iconUrl` fields as the list. For example `/service-catalog/api/categories/1` returns Plumbing. A missing, nonpositive or noninteger ID returns 404. This single-category endpoint is public and requires no token; the category list still requires authentication. The query selects only the requested ID with a bound SQL parameter. No SQL migration or Gateway update is needed; republish ServiceCatalog.Api.
 
 ## Manual SQL and IIS
 

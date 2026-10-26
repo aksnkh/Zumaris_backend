@@ -17,6 +17,7 @@ public sealed class CategoriesController(ICategoryRepository categories, IConfig
         return Ok((await categories.ListAsync(cancellationToken)).Select(ToResponse).ToArray());
     }
 
+    [AllowAnonymous]
     [HttpGet("{id:int:min(1)}")]
     [ProducesResponseType(typeof(CategoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -31,8 +31,9 @@ public class SimpleTokenTests
         using var factory = new Factory(environment,enabled);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         if (token is not null) client.DefaultRequestHeaders.Authorization = new("Bearer",token);
-        foreach (var path in new[] {"/api/areas","/api/categories","/api/categories/1"})
+        foreach (var path in new[] {"/api/areas","/api/categories"})
             Assert.Equal((HttpStatusCode)status,(await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/categories/1")).StatusCode);
     }
 
     [Theory]

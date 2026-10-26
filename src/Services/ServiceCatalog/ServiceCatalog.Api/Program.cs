@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -56,6 +57,9 @@ builder.Services.AddSwaggerGen(c =>
 });
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
+    // Explicit temporary opt-in for frontend catalog testing in any environment.
+    var allowTestToken = builder.Configuration.GetValue<bool>("Testing:AllowSimpleToken");
+
     options.MapInboundClaims = false; options.IncludeErrorDetails = false;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -67,6 +71,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     };
     options.Events = new JwtBearerEvents
     {
+        OnMessageReceived = context =>
+        {
+            if (allowTestToken && context.Request.Headers.Authorization.Count == 1 &&
+                string.Equals(context.Request.Headers.Authorization.ToString(), "Bearer 1", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Principal = new ClaimsPrincipal(new ClaimsIdentity(new[] {
+                    new Claim("sub", "11111111-1111-4111-8111-111111111111"),
+                    new Claim("sid", "22222222-2222-4222-8222-222222222222"),
+                    new Claim("unique_name", "catalog-frontend-test")
+                }, "CatalogTestToken"));
+                context.Success();
+            }
+            return Task.CompletedTask;
+        },
         OnTokenValidated = async context =>
         {
             if (!Guid.TryParse(context.Principal?.FindFirst("sub")?.Value, out var userId) || userId == Guid.Empty ||

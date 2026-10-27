@@ -43,8 +43,8 @@ public sealed class ServiceRequestAdoNetRepository(IConfiguration configuration)
             foreach (var (name, value) in new (string, object?)[]
             {
                 ("@id", request.RequestId.ToString()), ("@user", request.UserId.ToString()),
-                ("@property", request.PropertyId.ToString()), ("@category", request.CategoryId.ToString()),
-                ("@area", request.AreaTypeId.ToString()), ("@description", request.Description),
+                ("@property", request.PropertyId.ToString()), ("@category", request.CategoryId),
+                ("@area", request.AreaTypeId), ("@description", request.Description),
                 ("@urgency", request.Urgency.ToString()), ("@date", request.PreferredDate?.ToDateTime(TimeOnly.MinValue)),
                 ("@start", request.PreferredStartTime?.ToTimeSpan()), ("@end", request.PreferredEndTime?.ToTimeSpan()),
                 ("@zone", request.TimeZoneId), ("@status", request.Status.ToString()), ("@created", request.CreatedAtUtc),
@@ -75,14 +75,14 @@ public sealed class ServiceRequestAdoNetRepository(IConfiguration configuration)
     }
     internal static ServiceRequestRecord ReadRecord(MySqlDataReader r)
     {
-        return new ServiceRequestRecord(Guid.Parse(r.GetString("id")), Guid.Parse(r.GetString("user_id")),
-            Guid.Parse(r.GetString("property_id")), Guid.Parse(r.GetString("category_id")), Guid.Parse(r.GetString("area_type_id")),
+        return new ServiceRequestRecord(r.GetGuid(r.GetOrdinal("id")), r.GetGuid(r.GetOrdinal("user_id")),
+            r.GetGuid(r.GetOrdinal("property_id")), r.GetInt32("category_id"), r.GetInt32("area_type_id"),
             r.GetString("description"), Enum.Parse<RequestUrgency>(r.GetString("urgency")),
             r.IsDBNull(r.GetOrdinal("preferred_date")) ? null : DateOnly.FromDateTime(r.GetDateTime("preferred_date")),
             r.IsDBNull(r.GetOrdinal("preferred_start_time")) ? null : TimeOnly.FromTimeSpan(r.GetTimeSpan("preferred_start_time")),
             r.IsDBNull(r.GetOrdinal("preferred_end_time")) ? null : TimeOnly.FromTimeSpan(r.GetTimeSpan("preferred_end_time")),
             r.GetString("time_zone_id"), Enum.Parse<RequestStatus>(r.GetString("status")),
-            r.IsDBNull(r.GetOrdinal("technician_id")) ? null : Guid.Parse(r.GetString("technician_id")),
+            r.IsDBNull(r.GetOrdinal("technician_id")) ? null : r.GetGuid(r.GetOrdinal("technician_id")),
             DateTime.SpecifyKind(r.GetDateTime("created_at"), DateTimeKind.Utc),
             r.IsDBNull(r.GetOrdinal("updated_at")) ? null : DateTime.SpecifyKind(r.GetDateTime("updated_at"), DateTimeKind.Utc), r.GetInt32("version"));
     }

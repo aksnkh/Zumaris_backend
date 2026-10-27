@@ -60,7 +60,7 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
         if (disposing && Directory.Exists(UploadRoot)) Directory.Delete(UploadRoot, true);
     }
 
-    public static CreateServiceRequest Valid() => new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+    public static CreateServiceRequest Valid() => new(Guid.NewGuid(), 1, 1,
         "The kitchen tap is leaking and needs repair.", RequestUrgency.Standard,
         new DateOnly(2030, 1, 2), new TimeOnly(10, 0), new TimeOnly(12, 0));
 }

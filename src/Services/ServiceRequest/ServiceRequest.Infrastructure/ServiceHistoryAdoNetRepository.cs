@@ -45,7 +45,7 @@ public sealed class ServiceHistoryAdoNetRepository(IConfiguration configuration)
         var items = new List<ServiceHistoryDto>();
         await using (var r = await cmd.ExecuteReaderAsync(ct))
             while (await r.ReadAsync(ct))
-                items.Add(new(Guid.Parse(r.GetString("id")), r.GetString("request_number"), Text(r,"service_name"),
+                items.Add(new(r.GetGuid(r.GetOrdinal("id")), r.GetString("request_number"), Text(r,"service_name"),
                     Text(r,"category_name"), Text(r,"category_icon"), Text(r,"service_area"), Text(r,"technician_name"),
                     Date(r,"service_date"), Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value));
         await tx.CommitAsync(ct);
@@ -64,10 +64,10 @@ public sealed class ServiceHistoryAdoNetRepository(IConfiguration configuration)
         cmd.Parameters.AddWithValue("@id", historyId.ToString());
         await using var r = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow, ct);
         if (!await r.ReadAsync(ct)) return null;
-        var id = Guid.Parse(r.GetString("id"));
-        return new(id, id, r.GetString("request_number"), Guid.Parse(r.GetString("user_id")), Guid.Parse(r.GetString("property_id")),
-            Text(r,"property_address"), Guid.Parse(r.GetString("category_id")), Text(r,"category_name"), Text(r,"service_name"),
-            Text(r,"service_area"), Text(r,"description"), Text(r,"technician_id") is { } technician ? Guid.Parse(technician) : null,
+        var id = r.GetGuid(r.GetOrdinal("id"));
+        return new(id, id, r.GetString("request_number"), r.GetGuid(r.GetOrdinal("user_id")), r.GetGuid(r.GetOrdinal("property_id")),
+            Text(r,"property_address"), r.GetInt32("category_id"), Text(r,"category_name"), Text(r,"service_name"),
+            Text(r,"service_area"), Text(r,"description"), r.IsDBNull(r.GetOrdinal("technician_id")) ? null : r.GetGuid(r.GetOrdinal("technician_id")),
             Text(r,"technician_name"), Date(r,"service_date"), Date(r,"completed_at"), Date(r,"cancelled_at"), Text(r,"cancellation_reason"),
             Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value, Date(r,"updated_at"));
     }

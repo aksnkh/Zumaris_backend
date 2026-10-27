@@ -3,7 +3,7 @@ using Zumaris.ServiceRequests.Domain;
 namespace Zumaris.ServiceRequests.Application;
 
 public sealed record CreateServiceRequest(
-    Guid PropertyId, Guid CategoryId, Guid AreaTypeId, string Description,
+    Guid PropertyId, int CategoryId, int AreaTypeId, string Description,
     RequestUrgency Urgency, DateOnly? PreferredDate, TimeOnly? PreferredStartTime, TimeOnly? PreferredEndTime);
 
 public sealed record CreatedServiceRequest(Guid RequestId, RequestStatus Status, DateTime CreatedAtUtc, int Version);

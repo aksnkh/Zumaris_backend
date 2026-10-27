@@ -56,8 +56,8 @@ dotnet publish src/Services/ServiceRequest/ServiceRequest.Api/ServiceRequest.Api
 ```json
 {
   "propertyId": "11111111-1111-4111-8111-111111111111",
-  "categoryId": "22222222-2222-4222-8222-222222222222",
-  "areaTypeId": "33333333-3333-4333-8333-333333333333",
+  "categoryId": 1,
+  "areaTypeId": 1,
   "description": "شیر آب آشپزخانه نشتی دارد و نیاز به تعمیر و بررسی دارد.",
   "urgency": "Standard",
   "preferredDate": "2030-01-02",
@@ -106,3 +106,7 @@ dotnet publish src/Services/ServiceRequest/ServiceRequest.Api/ServiceRequest.Api
 
 
 راهنمای API سوابق خدمات و اسکریپت جدید دیتابیس: [service-history.md](service-history.md).
+
+## Numeric catalog IDs
+
+Category and Area IDs are now positive integers, not GUIDs. See [migration, examples and deployment order](service-request-numeric-catalog-ids.md). Existing databases require manual migration 004 before publishing the updated ServiceRequest API.

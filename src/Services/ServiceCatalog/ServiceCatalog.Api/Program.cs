@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Validation;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
@@ -27,7 +28,7 @@ builder.Services.AddHttpClient<IIdentitySessionValidator, IdentitySessionValidat
     client.Timeout = TimeSpan.FromSeconds(5);
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddProblemDetails();
-builder.Services.AddControllers().AddJsonOptions(options =>
+builder.Services.AddControllers().AddValidationMessages().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
     // User identity, current selection and summary statistics are server-owned fields.

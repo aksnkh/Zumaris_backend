@@ -20,4 +20,7 @@
   <ItemGroup>
     <Content Update="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../BuildingBlocks/Zumaris.BuildingBlocks.Common/Zumaris.BuildingBlocks.Common.csproj" />
+  </ItemGroup>
 </Project>

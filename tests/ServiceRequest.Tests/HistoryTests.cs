@@ -59,7 +59,7 @@ public sealed class HistoryTests
     {
         using var f = new RequestFactory(); using var c = f.Client();
         var id = Guid.NewGuid();
-        f.HistoryRepository.Item = new(id,id,"SR-"+id.ToString("N"),f.UserId,Guid.NewGuid(),null,Guid.NewGuid(),null,
+        f.HistoryRepository.Item = new(id,id,"SR-"+id.ToString("N"),f.UserId,Guid.NewGuid(),null,1,null,
             null,null,"A request with no category snapshot yet.",null,null,null,null,null,null,"Cancelled","Paid",null,null,DateTime.UtcNow,null);
         var page = await c.GetFromJsonAsync<PagedResult<ServiceHistoryDto>>("/api/service-history?status=Paid");
         var item = Assert.Single(page!.Items);
@@ -73,7 +73,7 @@ public sealed class HistoryTests
     {
         using var f = new RequestFactory(); using var owner = f.Client(); var id = Guid.NewGuid();
         var now = DateTime.UtcNow;
-        f.HistoryRepository.Item = new(id,id,"SR-"+id.ToString("N"),f.UserId,Guid.NewGuid(),"Address",Guid.NewGuid(),"Plumbing",
+        f.HistoryRepository.Item = new(id,id,"SR-"+id.ToString("N"),f.UserId,Guid.NewGuid(),"Address",1,"Plumbing",
             "Tap repair","Kitchen","A leaking tap requires repair.",null,null,null,null,now,"Changed plans","Cancelled","Unpaid",null,null,now,now);
         using var r = await owner.GetAsync("/api/service-history/" + id);
         Assert.Equal(HttpStatusCode.OK, r.StatusCode); Assert.Equal("no-store",r.Headers.CacheControl!.ToString());

@@ -59,7 +59,7 @@ public sealed class RequestLifecycleAdoNetRepository(IConfiguration configuratio
         for (var i = 0; i < requestIds.Count; i++) cmd.Parameters.AddWithValue(names[i], requestIds[i].ToString());
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         var photos = new List<PhotoRecord>();
-        while (await reader.ReadAsync(ct)) photos.Add(new(Guid.Parse(reader.GetString("id")), Guid.Parse(reader.GetString("request_id")),
+        while (await reader.ReadAsync(ct)) photos.Add(new(reader.GetGuid(reader.GetOrdinal("id")), reader.GetGuid(reader.GetOrdinal("request_id")),
             reader.GetString("file_path"), reader.GetByte("slot"), Utc(reader.GetDateTime("created_at"))));
         return photos;
     }
@@ -79,7 +79,7 @@ public sealed class RequestLifecycleAdoNetRepository(IConfiguration configuratio
             UPDATE service_requests SET property_id=@property, category_id=@category, area_type_id=@area,
             description=@description, urgency=@urgency, preferred_date=@date, preferred_start_time=@start,
             preferred_end_time=@end, updated_at=@now, version=version+1 WHERE id=@id AND user_id=@user AND version=@version
-            """, ("@property", request.PropertyId.ToString()), ("@category", request.CategoryId.ToString()), ("@area", request.AreaTypeId.ToString()),
+            """, ("@property", request.PropertyId.ToString()), ("@category", request.CategoryId), ("@area", request.AreaTypeId),
             ("@description", request.Description), ("@urgency", request.Urgency.ToString()), ("@date", request.PreferredDate?.ToDateTime(TimeOnly.MinValue)),
             ("@start", request.PreferredStartTime?.ToTimeSpan()), ("@end", request.PreferredEndTime?.ToTimeSpan()), ("@now", now),
             ("@id", requestId.ToString()), ("@user", userId.ToString()), ("@version", version));
@@ -113,9 +113,9 @@ public sealed class RequestLifecycleAdoNetRepository(IConfiguration configuratio
             WHERE r.id=@id AND r.user_id=@user ORDER BY h.occurred_at, (h.from_status IS NOT NULL), h.id
             """, ("@id", requestId.ToString()), ("@user", userId.ToString()));
         await using var reader = await cmd.ExecuteReaderAsync(ct); var items = new List<RequestStatusHistoryDto>();
-        while (await reader.ReadAsync(ct)) items.Add(new(Guid.Parse(reader.GetString("id")),
+        while (await reader.ReadAsync(ct)) items.Add(new(reader.GetGuid(reader.GetOrdinal("id")),
             reader.IsDBNull(reader.GetOrdinal("from_status")) ? null : Enum.Parse<RequestStatus>(reader.GetString("from_status")),
-            Enum.Parse<RequestStatus>(reader.GetString("to_status")), Guid.Parse(reader.GetString("actor_user_id")),
+            Enum.Parse<RequestStatus>(reader.GetString("to_status")), reader.GetGuid(reader.GetOrdinal("actor_user_id")),
             Utc(reader.GetDateTime("occurred_at")), reader.IsDBNull(reader.GetOrdinal("reason")) ? null : reader.GetString("reason")));
         return items;
     }

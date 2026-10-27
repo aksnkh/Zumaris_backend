@@ -11,7 +11,7 @@ public static class RequestStateRules
 }
 
 public sealed record ServiceRequestRecord(
-    Guid RequestId, Guid UserId, Guid PropertyId, Guid CategoryId, Guid AreaTypeId,
+    Guid RequestId, Guid UserId, Guid PropertyId, int CategoryId, int AreaTypeId,
     string Description, RequestUrgency Urgency, DateOnly? PreferredDate,
     TimeOnly? PreferredStartTime, TimeOnly? PreferredEndTime, string TimeZoneId,
     RequestStatus Status, Guid? TechnicianId, DateTime CreatedAtUtc,

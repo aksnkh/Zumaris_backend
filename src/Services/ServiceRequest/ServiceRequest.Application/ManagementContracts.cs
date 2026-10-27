@@ -2,7 +2,7 @@ using Zumaris.ServiceRequests.Domain;
 
 namespace Zumaris.ServiceRequests.Application;
 
-public sealed record UpdateServiceRequest(Guid PropertyId, Guid CategoryId, Guid AreaTypeId, string Description,
+public sealed record UpdateServiceRequest(Guid PropertyId, int CategoryId, int AreaTypeId, string Description,
     RequestUrgency Urgency, DateOnly? PreferredDate, TimeOnly? PreferredStartTime, TimeOnly? PreferredEndTime, int Version)
 {
     public CreateServiceRequest AsCreate() => new(PropertyId, CategoryId, AreaTypeId, Description, Urgency,

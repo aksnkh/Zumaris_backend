@@ -36,6 +36,20 @@ public sealed class CreateTests
     }
 
     [Theory]
+    [InlineData("categoryId", "-1")]
+    [InlineData("areaTypeId", "-1")]
+    [InlineData("categoryId", "\"3fa85f64-5717-4562-b3fc-2c963f66afa6\"")]
+    [InlineData("areaTypeId", "\"3fa85f64-5717-4562-b3fc-2c963f66afa6\"")]
+    public async Task Catalog_ids_reject_negative_numbers_and_legacy_guids(string field, string value)
+    {
+        using var factory = new RequestFactory(); using var client = factory.Client();
+        var body = JsonSerializer.SerializeToNode(RequestFactory.Valid(), Json)!.AsObject();
+        body[field] = JsonNode.Parse(value);
+        Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync("/api/service-requests",body)).StatusCode);
+        Assert.Empty(factory.Repository.Records);
+    }
+
+    [Theory]
     [InlineData(19, HttpStatusCode.BadRequest)]
     [InlineData(20, HttpStatusCode.Created)]
     [InlineData(500, HttpStatusCode.Created)]
@@ -78,7 +92,7 @@ public sealed class CreateTests
     public async Task Rejects_empty_reference_ids(string field)
     {
         using var factory = new RequestFactory(); using var client = factory.Client();
-        var body = JsonSerializer.SerializeToNode(RequestFactory.Valid(), Json)!.AsObject(); body[field] = Guid.Empty;
+        var body = JsonSerializer.SerializeToNode(RequestFactory.Valid(), Json)!.AsObject(); body[field] = field == "propertyId" ? JsonValue.Create(Guid.Empty) : JsonValue.Create(0);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/service-requests", body)).StatusCode);
     }
 
@@ -193,6 +207,11 @@ public sealed class CreateTests
         using var factory = new RequestFactory(); using var client = factory.Client(false);
         using var json = JsonDocument.Parse(await client.GetStringAsync("/swagger/v1/swagger.json"));
         Assert.True(json.RootElement.GetProperty("paths").TryGetProperty("/api/service-requests", out _));
+        var properties = json.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("CreateServiceRequest").GetProperty("properties");
+        Assert.Equal("integer",properties.GetProperty("categoryId").GetProperty("type").GetString());
+        Assert.Equal("integer",properties.GetProperty("areaTypeId").GetProperty("type").GetString());
+        Assert.Equal("uuid",properties.GetProperty("propertyId").GetProperty("format").GetString());
         Assert.Contains(json.RootElement.GetProperty("paths").GetProperty("/api/service-requests").GetProperty("post").GetProperty("parameters").EnumerateArray(),
             parameter => parameter.GetProperty("name").GetString() == "Idempotency-Key");
         var server = json.RootElement.GetProperty("servers")[0].GetProperty("url").GetString();

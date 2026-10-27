@@ -10,7 +10,7 @@ public sealed record ServiceHistoryDto(Guid RequestId, string RequestNumber, str
     DateTime? ServiceDate, string Status, string PaymentStatus, decimal? TotalAmount,
     string? CurrencyCode, DateTime CreatedAt);
 public sealed record ServiceHistoryDetailDto(Guid HistoryId, Guid RequestId, string RequestNumber,
-    Guid UserId, Guid PropertyId, string? PropertyAddress, Guid CategoryId, string? CategoryName,
+    Guid UserId, Guid PropertyId, string? PropertyAddress, int CategoryId, string? CategoryName,
     string? ServiceName, string? ServiceArea, string? Description, Guid? TechnicianId,
     string? TechnicianName, DateTime? ServiceDate, DateTime? CompletedAt, DateTime? CancelledAt,
     string? CancellationReason, string Status, string PaymentStatus, decimal? TotalAmount,

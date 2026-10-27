@@ -9,8 +9,8 @@ public static class ServiceRequestRules
         var errors = new Dictionary<string, string[]>();
         void Error(string field, string message) => errors[field] = [message];
         if (request.PropertyId == Guid.Empty) Error(nameof(request.PropertyId), "A nonempty PropertyId is required.");
-        if (request.CategoryId == Guid.Empty) Error(nameof(request.CategoryId), "A nonempty CategoryId is required.");
-        if (request.AreaTypeId == Guid.Empty) Error(nameof(request.AreaTypeId), "A nonempty AreaTypeId is required.");
+        if (request.CategoryId <= 0) Error(nameof(request.CategoryId), "A positive integer CategoryId is required.");
+        if (request.AreaTypeId <= 0) Error(nameof(request.AreaTypeId), "A positive integer AreaTypeId is required.");
         var description = request.Description?.Trim() ?? "";
         // Count Unicode code points, matching MySQL CHAR_LENGTH for non-BMP characters too.
         if (description.EnumerateRunes().Count() is < 20 or > 500)

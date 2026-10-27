@@ -16,4 +16,7 @@
   <ItemGroup>
     <Folder Include="Controllers/" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../BuildingBlocks/Zumaris.BuildingBlocks.Common/Zumaris.BuildingBlocks.Common.csproj" />
+  </ItemGroup>
 </Project>

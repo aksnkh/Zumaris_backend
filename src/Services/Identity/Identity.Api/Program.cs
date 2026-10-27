@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Validation;
 using System.Text;
 using Identity.Api.Controllers;
 using Identity.Application.Abstractions.Persistence;
@@ -28,7 +29,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Add(System.Net.IPAddress.Loopback);
     options.KnownProxies.Add(System.Net.IPAddress.IPv6Loopback);
 });
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddValidationMessages();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {

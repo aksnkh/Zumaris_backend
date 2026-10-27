@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Validation;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -35,7 +36,7 @@ builder.Services.AddHttpClient<IIdentitySessionValidator, IdentitySessionValidat
     client.Timeout = TimeSpan.FromSeconds(5);
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddProblemDetails();
-builder.Services.AddControllers().AddJsonOptions(options =>
+builder.Services.AddControllers().AddValidationMessages().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
     // Reject attempts to submit server-owned fields (userId/status/technicianId/photos).

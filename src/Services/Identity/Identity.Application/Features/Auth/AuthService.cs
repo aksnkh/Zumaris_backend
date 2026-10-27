@@ -13,16 +13,16 @@ public sealed class AuthService(
     ITokenService tokens,
     IUserSessionIssuer issuer) : IAuthService
 {
-    private static UnauthorizedAccessException InvalidToken() => new("نشست نامعتبر یا منقضی شده است؛ دوباره وارد شوید.");
+    private static UnauthorizedAccessException InvalidToken() => new("The session is invalid or expired. Please sign in again.");
 
     public async Task<(AuthResponse Response, string RefreshToken)> LoginAsync(
         LoginRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
-            throw new UnauthorizedAccessException("نام کاربری یا کلمه عبور نادرست است.");
+            throw new UnauthorizedAccessException("Invalid username or password.");
         var user = await users.GetUserByUsernameAsync(request.UserName.Trim(), cancellationToken);
         if (user is null || !user.IsActive || string.IsNullOrEmpty(user.PasswordHash) || !passwords.Verify(request.Password, user.PasswordHash))
-            throw new UnauthorizedAccessException("نام کاربری یا کلمه عبور نادرست است.");
+            throw new UnauthorizedAccessException("Invalid username or password.");
 
         return await issuer.IssueAsync(user, cancellationToken);
     }

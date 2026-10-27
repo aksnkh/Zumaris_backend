@@ -29,7 +29,7 @@ public sealed class ServiceRequestsController(IServiceRequestService service) : 
             if (result.IsReplay) Response.Headers["Idempotency-Replayed"] = "true";
             // Relative Location preserves /service-request when routed through Gateway.
             return Created($"service-requests/{result.Request.RequestId}", new Response<CreatedServiceRequest>(result.Request)
-                { StatusCode = 201, Title = "Created", MessageLevel = MessageLevel.Cif, Message = "درخواست سرویس ثبت شد." });
+                { StatusCode = 201, Title = "Created", MessageLevel = MessageLevel.Cif, Message = "Service request submitted successfully." });
         }
         catch (RequestValidationException ex) { return BadRequest(new ValidationProblemDetails(ex.Errors) { Status = 400 }); }
         catch (IdempotencyConflictException ex) { return Conflict(new ProblemDetails { Status = 409, Title = ex.Message }); }

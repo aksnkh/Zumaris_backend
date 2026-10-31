@@ -21,7 +21,7 @@ public sealed class AuthService(
         if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
             throw new UnauthorizedAccessException("Invalid username or password.");
         var user = await users.GetUserByUsernameAsync(request.UserName.Trim(), cancellationToken);
-        if (user is null || !user.IsActive || string.IsNullOrEmpty(user.PasswordHash) || !passwords.Verify(request.Password, user.PasswordHash))
+        if (user is null || !user.IsActive || string.IsNullOrWhiteSpace(user.PasswordHash) || !passwords.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid username or password.");
 
         return await issuer.IssueAsync(user, cancellationToken);

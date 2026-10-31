@@ -2,7 +2,7 @@
 
 # ورود Google در Identity
 
-فعلاً فقط بک‌اند پیاده‌سازی شده است؛ اتصال NextAuth و ذخیره توکن در فرانت هنوز انجام نشده است. Redis برای این بک‌اند لازم نیست.
+اتصال MVP در فرانت NextAuth نیز پیاده‌سازی شده است: توکن امضاشده Google به Identity فرستاده می‌شود و نشست Zumaris برای درخواست‌های API، refresh و خروج استفاده می‌شود. Redis لازم نیست؛ فرانت این MVP باید با یک پردازش Node و یک replica اجرا شود.
 
 ## آماده‌سازی سرور
 
@@ -55,7 +55,9 @@ Google Client Secret در بک‌اند لازم نیست. سرور باید ب�
 
 </div>
 
-NextAuth باید `account.id_token` را ارسال کند، نه Google access token یا JWT نشست NextAuth. توکن خروجی Zumaris برای ServiceRequest با هدر Bearer قابل استفاده است. مرورگر نباید کلید BFF یا refresh token را دریافت کند؛ اتصال فرانت و هماهنگی refresh هم‌زمان در مرحله بعد پیاده‌سازی خواهد شد. استفاده مجدد از refresh token مصرف‌شده کل نشست را باطل می‌کند؛ بنابراین refresh موازی برای یک نشست مجاز نیست.
+NextAuth مقدار `account.id_token` را ارسال می‌کند، نه Google access token یا JWT نشست NextAuth. توکن خروجی Zumaris برای ServiceRequest با هدر Bearer قابل استفاده است. فرانت refresh token را داخل کوکی رمزگذاری‌شده HttpOnly نگه می‌دارد؛ پاسخ JSON نشست فقط access token و شناسه داخلی کاربر را در اختیار JavaScript قرار می‌دهد. کلید BFF فقط روی سرور است. استفاده مجدد از refresh token مصرف‌شده کل نشست را باطل می‌کند؛ فرانت MVP درخواست‌های هم‌زمان را با cache کوتاه در یک پردازش هماهنگ می‌کند. این روش برای چند replica مناسب نیست.
+
+در سرور Next.js، `ZUMARIS_BFF_KEY` را برابر `Bff__ClientKey` و `AUTH_GOOGLE_ID` را برابر Client ID مجاز Identity تنظیم کنید. `AUTH_GOOGLE_SECRET` و `AUTH_SECRET` فقط در فرانت لازم‌اند. `IDENTITY_API_URL` در فرانت اختیاری است و به‌صورت پیش‌فرض `https://api.zumaris.com/identity/api/auth` است؛ برای توسعه محلی می‌توان `http://127.0.0.1:5105/api/auth` داد. تنظیمات کامل و دستورهای تست در README ریپوی فرانت آمده است. UI اتصال حساب موجود خارج از محدوده این MVP است.
 
 اعتبارسنجی رسمی Google شامل امضا، audience، issuer، انقضا و ایمیل تأییدشده است. شناسه پایدار حساب `sub` مبنای نگاشت است. رمز ساختگی ایجاد نمی‌شود و کاربر صرفاً گوگلی با رمز خالی امکان ورود با رمز ندارد. تغییر ایمیل گوگل کاربر داخلی جدیدی برای همان `sub` ایجاد نمی‌کند.
 

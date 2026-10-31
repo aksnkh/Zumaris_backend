@@ -67,6 +67,32 @@ public sealed class GoogleLoginTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync("/api/auth/session")).StatusCode);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Passwordless_account_never_creates_a_password_session(string? hash)
+    {
+        using var f = new AuthFactory(); using var c = Client(f);
+        f.Users.User.PasswordHash = hash;
+        var response = await c.PostAsJsonAsync("/api/auth/login",
+            new { userName = f.Users.User.UserName, password = "Password-for-tests-1" });
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Empty(f.Sessions.Items);
+    }
+
+    [Fact]
+    public async Task Different_google_subject_with_same_email_cannot_take_over_passwordless_account()
+    {
+        using var f = new AuthFactory(); using var c = Client(f);
+        var original = await Read(await Google(c));
+        f.Google.Identity = f.Google.Identity with { Subject = "different-google-subject" };
+        Assert.Equal(HttpStatusCode.Conflict, (await Google(c)).StatusCode);
+        Assert.Equal(original.UserId, Assert.Single(f.Users.GoogleUsers).Id);
+        Assert.Null(Assert.Single(f.Users.GoogleUsers).PasswordHash);
+        Assert.Single(f.Sessions.Items);
+    }
+
     [Fact]
     public async Task Reuse_of_bff_refresh_revokes_session_and_rejects_new_token()
     {

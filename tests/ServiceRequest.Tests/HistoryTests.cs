@@ -73,11 +73,16 @@ public sealed class HistoryTests
     {
         using var f = new RequestFactory(); using var owner = f.Client(); var id = Guid.NewGuid();
         var now = DateTime.UtcNow;
+        f.Icons.Url = "/service-catalog/api/categories/icons/1.svg";
         f.HistoryRepository.Item = new(id,id,"SR-"+id.ToString("N"),f.UserId,Guid.NewGuid(),"Address",1,"Plumbing",
             "Tap repair","Kitchen","A leaking tap requires repair.",null,null,null,null,now,"Changed plans","Cancelled","Unpaid",null,null,now,now);
         using var r = await owner.GetAsync("/api/service-history/" + id);
         Assert.Equal(HttpStatusCode.OK, r.StatusCode); Assert.Equal("no-store",r.Headers.CacheControl!.ToString());
         var item = await r.Content.ReadFromJsonAsync<ServiceHistoryDetailDto>();
+        Assert.Equal("/service-catalog/api/categories/icons/1.svg",item!.CategoryIconUrl);
+        var page = await owner.GetFromJsonAsync<PagedResult<ServiceHistoryDto>>("/api/service-history");
+        Assert.Equal(f.Icons.Url,Assert.Single(page!.Items).CategoryIconUrl);
+        Assert.Equal(f.Icons.Url,page.Items[0].CategoryIcon);
         Assert.Equal(id,item!.HistoryId); Assert.Equal(id,item.RequestId); Assert.Equal("Changed plans",item.CancellationReason);
         using var other = f.Client(userId: Guid.NewGuid());
         Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync("/api/service-history/"+id)).StatusCode);
@@ -108,7 +113,7 @@ public sealed class HistoryRepositoryFake : IServiceHistoryRepository
         if (Item is { } x && x.UserId==user && (request.Status is null ||
             (request.Status=="Paid" ? x.PaymentStatus=="Paid" : x.Status==request.Status)))
             list.Add(new(x.RequestId,x.RequestNumber,x.ServiceName,x.CategoryName,null,x.ServiceArea,x.TechnicianName,
-                x.ServiceDate,x.Status,x.PaymentStatus,x.TotalAmount,x.CurrencyCode,x.CreatedAt));
+                x.ServiceDate,x.Status,x.PaymentStatus,x.TotalAmount,x.CurrencyCode,x.CreatedAt) { CategoryId = x.CategoryId });
         return Task.FromResult(new PagedResult<ServiceHistoryDto>(list,request.PageNumber,request.PageSize,list.Count));
     }
     public Task<ServiceHistoryDetailDto?> GetByIdAsync(Guid user, Guid id, CancellationToken ct)

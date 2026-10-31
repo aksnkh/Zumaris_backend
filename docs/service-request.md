@@ -110,3 +110,11 @@ dotnet publish src/Services/ServiceRequest/ServiceRequest.Api/ServiceRequest.Api
 ## Numeric catalog IDs
 
 Category and Area IDs are now positive integers, not GUIDs. See [migration, examples and deployment order](service-request-numeric-catalog-ids.md). Existing databases require manual migration 004 before publishing the updated ServiceRequest API.
+
+## Category icons in service history
+
+`GET /api/service-history` now returns `categoryId` and `categoryIconUrl` for each item. The existing `categoryIcon` field also contains the resolved URL for compatibility. History details (`GET /api/service-history/{id}`) include `categoryIconUrl` as well.
+
+The service looks up the actual icon URL from ServiceCatalog's public `GET /api/categories/{id}`, so SVG/PNG filenames follow the catalog instead of assuming a suffix. No cross-schema SQL or database migration is needed. List lookups are deduplicated per category, have bounded concurrency and a total three-second lookup budget. An unavailable catalog or missing icon does not fail history retrieval; list items fall back to their stored category-icon snapshot, otherwise the URL is null. History detail returns null if lookup fails. Ownership filtering and authentication are unchanged.
+
+Production `ServiceCatalog:BaseUrl` defaults to `http://127.0.0.1:5006/`; Development uses port 5110. Override it in ServiceRequest local settings if the services are hosted differently. Use HTTPS for non-loopback destinations. The returned public URL is relative to the API origin: resolve it against `https://api.zumaris.com` in a separate frontend. Publish ServiceRequest.Api; existing ServiceCatalog category-by-ID and icon routes must be deployed. No Gateway update is required.

@@ -20,6 +20,7 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
     public MemoryRequests Repository { get; } = new();
     public HistoryRepositoryFake HistoryRepository { get; } = new();
     public SessionValidator Validator { get; } = new();
+    public IconLookup Icons { get; } = new();
     public TestClock Clock { get; } = new();
     public string UploadRoot { get; } = Path.Combine(Path.GetTempPath(), "zumaris-test-photos-" + Guid.NewGuid().ToString("N"));
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -31,6 +32,8 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<IServiceRequestRepository>(); services.RemoveAll<IIdentitySessionValidator>();
             services.RemoveAll<IServiceHistoryRepository>();
+            services.RemoveAll<ICategoryIconLookup>();
+            services.AddSingleton<ICategoryIconLookup>(Icons);
             services.AddSingleton<IServiceHistoryRepository>(HistoryRepository);
             services.RemoveAll<TimeProvider>(); services.RemoveAll<IRequestLifecycleRepository>();
             services.AddSingleton<IServiceRequestRepository>(Repository);
@@ -183,4 +186,11 @@ public sealed class MemoryRequests : IServiceRequestRepository, IRequestLifecycl
             Replace(r with { Version = version + 1, UpdatedAtUtc = now }); return Task.FromResult(version + 1);
         }
     }
+}
+
+public sealed class IconLookup : ICategoryIconLookup
+{
+    public string? Url { get; set; }
+    public int Calls { get; private set; }
+    public Task<string?> GetIconUrlAsync(int categoryId, CancellationToken ct) { Calls++; return Task.FromResult(Url); }
 }

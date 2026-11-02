@@ -52,3 +52,5 @@ Follow [the Service Request guide](docs/service-request.md). First run `./script
 Database changes will be supplied as SQL scripts for manual execution.
 
 Property CRUD, manual MySQL setup and IIS deployment: [Property instructions](docs/property.md).
+
+Personal information and private profile photos: [Identity profile API and manual SQL setup](docs/personal-profile.md). Email is read-only; profile updates use last-write-wins without a version field.

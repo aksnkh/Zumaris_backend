@@ -1,3 +1,5 @@
+using Identity.Application.Features.Profile;
+using Identity.Infrastructure.Storage;
 using Zumaris.BuildingBlocks.Common.Validation;
 using System.Text;
 using Identity.Api.Controllers;
@@ -43,7 +45,7 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityDefinition("CSRF", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.ApiKey, In = ParameterLocation.Header, Name = "X-Zumaris-CSRF",
-        Description = "Enter 1. Required for POST and DELETE requests."
+        Description = "Enter 1. Required for POST, PUT and DELETE requests."
     });
     c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
@@ -62,6 +64,11 @@ builder.Services.AddScoped<IGoogleIdentityValidator, GoogleIdentityValidator>();
 builder.Services.AddScoped<IExternalLoginRepository, ExternalLoginAdoNetRepository>();
 builder.Services.AddScoped<GoogleAuthService>();
 builder.Services.AddScoped<BffOnlyFilter>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IProfileRepository,ProfileAdoNetRepository>();
+builder.Services.AddScoped<IProfilePhotoStorage,LocalProfilePhotoStorage>();
+builder.Services.AddScoped<ProfileService>();
+builder.Services.AddScoped<ProfileExceptionFilter>();
 
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 {

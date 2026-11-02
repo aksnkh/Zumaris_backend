@@ -1,3 +1,4 @@
+using Identity.Application.Features.Profile;
 using Identity.Application.Abstractions.Persistence;
 using Identity.Application.Features.Auth;
 using Identity.Domain.Entities;
@@ -20,7 +21,9 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
     public MemorySessions Sessions { get; } = new();
     public FakeGoogleValidator Google { get; } = new();
     public FakeExternalLogins External { get; }
-    public AuthFactory() { External = new FakeExternalLogins(Users); }
+    public MemoryProfiles Profiles { get; }
+    public string ProfilePhotoRoot { get; } = Path.Combine(Path.GetTempPath(),"zumaris-profile-tests-"+Guid.NewGuid().ToString("N"));
+    public AuthFactory() { External = new FakeExternalLogins(Users); Profiles = new MemoryProfiles(Users); }
     public const string BffKey = "test-only-bff-key-never-deploy-this-123456789";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -31,8 +34,11 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
             ["Jwt:Key"] = TestKey, ["Jwt:Issuer"] = "identity-tests", ["Jwt:Audience"] = "identity-test-clients",
             ["Jwt:AccessTokenExpirationMinutes"] = "15", ["Jwt:RefreshTokenExpirationDays"] = "7", ["Bff:ClientKey"] = BffKey
         }));
+        builder.ConfigureAppConfiguration((_,config) => config.AddInMemoryCollection(new Dictionary<string,string?> { ["ProfilePhotos:RootPath"]=ProfilePhotoRoot }));
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<IProfileRepository>();
+            services.AddSingleton<IProfileRepository>(Profiles);
             services.RemoveAll<IAuthRepository>();
             services.RemoveAll<ISessionRepository>();
             services.RemoveAll<IGoogleIdentityValidator>();
@@ -42,6 +48,12 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
             services.AddSingleton<IGoogleIdentityValidator>(Google);
             services.AddSingleton<IExternalLoginRepository>(External);
         });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing && Directory.Exists(ProfilePhotoRoot)) Directory.Delete(ProfilePhotoRoot,true);
     }
 
     public HttpClient NewClient(bool csrf = true)

@@ -1,3 +1,4 @@
+using Zumaris.ServiceRequests.Application.Quotes;
 using Zumaris.BuildingBlocks.Common.Validation;
 using System.Net;
 using System.Text;
@@ -26,6 +27,17 @@ builder.Services.AddScoped<IServiceRequestRepository, ServiceRequestAdoNetReposi
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
 builder.Services.AddScoped<IServiceHistoryRepository, ServiceHistoryAdoNetRepository>();
 builder.Services.AddScoped<IServiceHistoryService, ServiceHistoryService>();
+builder.Services.AddScoped<IQuoteRepository,QuoteAdoNetRepository>();
+builder.Services.AddScoped<QuoteService>();
+builder.Services.AddScoped<QuoteExceptionFilter>();
+var providerUri=new Uri(builder.Configuration["Provider:BaseUrl"]??"http://127.0.0.1:5007/");
+if(!providerUri.IsAbsoluteUri||!string.IsNullOrEmpty(providerUri.UserInfo)||
+    !(providerUri.Scheme=="https"||(providerUri.Scheme=="http"&&providerUri.IsLoopback))||!providerUri.AbsoluteUri.EndsWith('/'))
+    throw new InvalidOperationException("Provider:BaseUrl must use HTTPS or loopback HTTP and end with a slash.");
+builder.Services.AddHttpClient<IProviderQuoteEligibility,ProviderQuoteEligibility>(client=>{
+    client.BaseAddress=providerUri;client.Timeout=TimeSpan.FromSeconds(5);
+    if(providerUri.IsLoopback)client.DefaultRequestHeaders.Add("X-Forwarded-Proto","https");
+}).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
 var catalogUri = new Uri(builder.Configuration["ServiceCatalog:BaseUrl"] ?? "http://127.0.0.1:5006/");
 if (!catalogUri.IsAbsoluteUri || !string.IsNullOrEmpty(catalogUri.UserInfo) ||
     !(catalogUri.Scheme == "https" || (catalogUri.Scheme == "http" && catalogUri.IsLoopback)) ||
@@ -36,6 +48,10 @@ builder.Services.AddHttpClient<ICategoryIconLookup, CategoryIconLookup>(client =
     client.BaseAddress = catalogUri;
     client.Timeout = TimeSpan.FromSeconds(3);
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddHttpClient<IQuoteDisplayLookup,QuoteDisplayLookup>(client=>{
+    client.BaseAddress=catalogUri;client.Timeout=TimeSpan.FromSeconds(2);
+    if(catalogUri.IsLoopback)client.DefaultRequestHeaders.Add("X-Forwarded-Proto","https");
+}).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
 builder.Services.AddScoped<IRequestLifecycleRepository, RequestLifecycleAdoNetRepository>();
 builder.Services.AddScoped<IRequestManagementService, RequestManagementService>();
 builder.Services.AddSingleton<IPhotoStorage, LocalPhotoStorage>();

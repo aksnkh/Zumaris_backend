@@ -118,3 +118,7 @@ Category and Area IDs are now positive integers, not GUIDs. See [migration, exam
 The service looks up the actual icon URL from ServiceCatalog's public `GET /api/categories/{id}`, so SVG/PNG filenames follow the catalog instead of assuming a suffix. No cross-schema SQL or database migration is needed. List lookups are deduplicated per category, have bounded concurrency and a total three-second lookup budget. An unavailable catalog or missing icon does not fail history retrieval; list items fall back to their stored category-icon snapshot, otherwise the URL is null. History detail returns null if lookup fails. Ownership filtering and authentication are unchanged.
 
 Production `ServiceCatalog:BaseUrl` defaults to `http://127.0.0.1:5006/`; Development uses port 5110. Override it in ServiceRequest local settings if the services are hosted differently. Use HTTPS for non-loopback destinations. The returned public URL is relative to the API origin: resolve it against `https://api.zumaris.com` in a separate frontend. Publish ServiceRequest.Api; existing ServiceCatalog category-by-ID and icon routes must be deployed. No Gateway update is required.
+
+## Quotes
+
+Technician quotes, customer acceptance/decline and atomic assignment are documented in [quote API and manual deployment](service-request-quotes.md). Apply migration 005 manually; Provider eligibility must be configured.

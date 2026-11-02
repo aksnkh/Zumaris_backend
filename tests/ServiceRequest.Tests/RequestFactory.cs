@@ -1,3 +1,4 @@
+using Zumaris.ServiceRequests.Application.Quotes;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Security.Claims;
@@ -21,6 +22,8 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
     public HistoryRepositoryFake HistoryRepository { get; } = new();
     public SessionValidator Validator { get; } = new();
     public IconLookup Icons { get; } = new();
+    public IQuoteRepository? QuoteRepositoryOverride { get; init; }
+    public QuoteProviderFake QuoteProvider { get; } = new();
     public TestClock Clock { get; } = new();
     public string UploadRoot { get; } = Path.Combine(Path.GetTempPath(), "zumaris-test-photos-" + Guid.NewGuid().ToString("N"));
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -30,6 +33,9 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
         { ["Jwt:Key"] = Key, ["Jwt:Issuer"] = "request-tests", ["Jwt:Audience"] = "request-clients", ["Storage:RootPath"] = UploadRoot }));
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<IQuoteRepository>(); services.AddSingleton<IQuoteRepository>(QuoteRepositoryOverride ?? new UnexpectedQuoteRepository());
+            services.RemoveAll<IProviderQuoteEligibility>(); services.AddSingleton<IProviderQuoteEligibility>(QuoteProvider);
+            services.RemoveAll<IQuoteDisplayLookup>(); services.AddSingleton<IQuoteDisplayLookup>(new QuoteDisplayFake());
             services.RemoveAll<IServiceRequestRepository>(); services.RemoveAll<IIdentitySessionValidator>();
             services.RemoveAll<IServiceHistoryRepository>();
             services.RemoveAll<ICategoryIconLookup>();
@@ -193,4 +199,36 @@ public sealed class IconLookup : ICategoryIconLookup
     public string? Url { get; set; }
     public int Calls { get; private set; }
     public Task<string?> GetIconUrlAsync(int categoryId, CancellationToken ct) { Calls++; return Task.FromResult(Url); }
+}
+
+public sealed class QuoteProviderFake : IProviderQuoteEligibility
+{
+    public Dictionary<Guid,ProviderQuoteIdentity> Users { get; } = [];
+    public bool Unavailable { get; set; }
+    public Task<ProviderQuoteIdentity> GetAsync(Guid user,int category,string bearer,CancellationToken ct)
+    {
+        if(Unavailable)throw new QuoteUnavailableException("Provider eligibility validation is temporarily unavailable.");
+        if(!Users.TryGetValue(user,out var profile)||!profile.IsVerified||profile.CategoryId!=category)throw new QuoteForbiddenException();
+        return Task.FromResult(profile);
+    }
+    public Task VerifyAsync(Guid provider,int category,string bearer,CancellationToken ct)
+    {
+        if(Unavailable)throw new QuoteUnavailableException("Provider eligibility validation is temporarily unavailable.");
+        if(!Users.Values.Any(p=>p.ProviderId==provider&&p.CategoryId==category&&p.IsVerified))throw new QuoteForbiddenException();
+        return Task.CompletedTask;
+    }
+}
+public sealed class QuoteDisplayFake : IQuoteDisplayLookup
+{
+    public Task<QuoteDisplay> GetAsync(int category,int area,string bearer,CancellationToken ct)=>Task.FromResult(new QuoteDisplay("Plumbing","Kitchen","/service-catalog/api/categories/icons/1.svg"));
+}
+
+public sealed class UnexpectedQuoteRepository:IQuoteRepository
+{
+    private static Exception Unexpected()=>new InvalidOperationException("Quote persistence must not be reached in this test.");
+    public Task<QuoteContext?> ContextAsync(Guid id,CancellationToken ct)=>throw Unexpected();
+    public Task<QuoteDto>CreateAsync(Guid actor,Guid request,CreateQuoteRequest input,ProviderQuoteIdentity provider,QuoteDisplay display,int expectedRequestVersion,string hash,DateTime now,CancellationToken ct)=>throw Unexpected();
+    public Task<QuotePage>ListAsync(Guid actor,bool sent,string? status,Guid? property,int page,int size,DateTime now,CancellationToken ct)=>throw Unexpected();
+    public Task<QuoteDto?>GetAsync(Guid actor,Guid id,DateTime now,CancellationToken ct)=>throw Unexpected();
+    public Task<QuoteDto>DecideAsync(Guid actor,Guid id,string decision,DateTime now,CancellationToken ct)=>throw Unexpected();
 }

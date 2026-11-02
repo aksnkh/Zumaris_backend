@@ -38,7 +38,7 @@ app.UseCors();
         //options.SwaggerEndpoint("/booking/swagger/v1/swagger.json", "Booking Service");
         //options.SwaggerEndpoint("/job-management/swagger/v1/swagger.json", "Job Management Service");
         //options.SwaggerEndpoint("/notification/swagger/v1/swagger.json", "Notification Service");
-        //options.SwaggerEndpoint("/provider/swagger/v1/swagger.json", "Provider Service");
+        options.SwaggerEndpoint("/provider/swagger/v1/swagger.json", "Provider Service");
 
         // اگر می‌خواهید با باز کردن آدرس اصلی گیت‌وی (localhost:5000) مستقیماً سواگر باز شود:
         options.RoutePrefix = string.Empty;

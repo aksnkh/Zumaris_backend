@@ -93,3 +93,21 @@ List items now include the real propertyId, areaTypeId and technicianId as well 
 A missing related record, lost property permission or an unavailable reference service can still leave its optional value null; stored snapshots remain available. A missing assigned technician, actual service date, payment amount or currency is not filled with fabricated values. Preferred appointments are not actual service dates, and quote totals are not settled payment totals.
 
 Publish ServiceRequest.Api and Provider.Api for this change. Existing Property/ServiceCatalog APIs and Gateway routes suffice; no new SQL migration is required. Configure ServiceRequest `Property:BaseUrl` as `http://127.0.0.1:5003/` in Production (5107 in Development); existing ServiceCatalog and Provider base URLs remain in use. Resolve relative icon URLs against the API origin in the frontend. Use the real user's JWT when testing protected reference lookups.
+
+## Customer-selected visit date and time
+
+Both the list and `GET /api/service-history/{id}` now return the existing scheduling fields directly from the order:
+
+```json
+{
+  "preferredDate": "2026-11-05",
+  "preferredStartTime": "10:00:00",
+  "preferredEndTime": "12:00:00",
+  "timeZoneId": "Europe/London",
+  "serviceDate": null
+}
+```
+
+`preferredDate` is the visit date selected by the customer; start/end are local wall-clock times in `timeZoneId`, not UTC timestamps. `serviceDate` remains the actual service date in UTC and is not replaced by the preferred date. `createdAt` remains the time the order was recorded. Unscheduled Emergency requests retain null preferred fields; no dates are invented. Financial values and payment status are unchanged.
+
+These columns already exist. No SQL migration or Gateway/Provider change is needed; republish ServiceRequest.Api.

@@ -13,6 +13,8 @@ public sealed class ServiceHistoryAdoNetRepository(IConfiguration configuration)
     private static string? Text(MySqlDataReader r, string name) => r.IsDBNull(r.GetOrdinal(name)) ? null : r.GetString(name);
     private static DateTime? Date(MySqlDataReader r, string name) => r.IsDBNull(r.GetOrdinal(name)) ? null
         : DateTime.SpecifyKind(r.GetDateTime(name), DateTimeKind.Utc);
+    private static DateOnly? PreferredDate(MySqlDataReader r) => r.IsDBNull(r.GetOrdinal("preferred_date")) ? null : DateOnly.FromDateTime(r.GetDateTime("preferred_date"));
+    private static TimeOnly? PreferredTime(MySqlDataReader r,string column) => r.IsDBNull(r.GetOrdinal(column)) ? null : TimeOnly.FromTimeSpan(r.GetTimeSpan(column));
     private static decimal? Amount(MySqlDataReader r) => r.IsDBNull(r.GetOrdinal("total_amount")) ? null : r.GetDecimal("total_amount");
     private static string Status(MySqlDataReader r) => r.GetString("status") is "Submitted" ? "Pending" : r.GetString("status");
     private static MySqlCommand Command(MySqlConnection c, MySqlTransaction? tx, string sql, Guid user)
@@ -49,7 +51,9 @@ public sealed class ServiceHistoryAdoNetRepository(IConfiguration configuration)
                     Text(r,"category_name"), Text(r,"category_icon"), Text(r,"service_area"), Text(r,"technician_name"),
                     Date(r,"service_date"), Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value) { CategoryId = r.GetInt32("category_id"), AreaTypeId = r.GetInt32("area_type_id"),
                         PropertyId = r.GetGuid(r.GetOrdinal("property_id")), PropertyAddress = Text(r,"property_address"),
-                        TechnicianId = r.IsDBNull(r.GetOrdinal("technician_id")) ? null : r.GetGuid(r.GetOrdinal("technician_id")) });
+                        TechnicianId = r.IsDBNull(r.GetOrdinal("technician_id")) ? null : r.GetGuid(r.GetOrdinal("technician_id")),
+                        PreferredDate = PreferredDate(r), PreferredStartTime = PreferredTime(r,"preferred_start_time"),
+                        PreferredEndTime = PreferredTime(r,"preferred_end_time"), TimeZoneId = Text(r,"time_zone_id") });
         await tx.CommitAsync(ct);
         return new(items, request.PageNumber, request.PageSize, total);
     }
@@ -71,6 +75,8 @@ public sealed class ServiceHistoryAdoNetRepository(IConfiguration configuration)
             Text(r,"property_address"), r.GetInt32("category_id"), Text(r,"category_name"), Text(r,"service_name"),
             Text(r,"service_area"), Text(r,"description"), r.IsDBNull(r.GetOrdinal("technician_id")) ? null : r.GetGuid(r.GetOrdinal("technician_id")),
             Text(r,"technician_name"), Date(r,"service_date"), Date(r,"completed_at"), Date(r,"cancelled_at"), Text(r,"cancellation_reason"),
-            Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value, Date(r,"updated_at")) { AreaTypeId = r.GetInt32("area_type_id"), CategoryIconUrl = Text(r,"category_icon") };
+            Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value, Date(r,"updated_at")) { AreaTypeId = r.GetInt32("area_type_id"), CategoryIconUrl = Text(r,"category_icon"),
+                PreferredDate = PreferredDate(r), PreferredStartTime = PreferredTime(r,"preferred_start_time"),
+                PreferredEndTime = PreferredTime(r,"preferred_end_time"), TimeZoneId = Text(r,"time_zone_id") };
     }
 }

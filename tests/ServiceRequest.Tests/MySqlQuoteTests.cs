@@ -109,10 +109,13 @@ public class MySqlQuoteTests
             await lifecycle.UpdateAsync(f.UserId,referenceId,newInput,1,f.Clock.Now.UtcDateTime,default);
             var reference=await historyRepository.GetByIdAsync(f.UserId,referenceId,default);
             Assert.Equal(2,reference!.CategoryId);Assert.Equal(3,reference.AreaTypeId);Assert.Equal(newInput.PropertyId,reference.PropertyId);
+            Assert.Equal(newInput.PreferredDate,reference.PreferredDate);Assert.Equal(newInput.PreferredStartTime,reference.PreferredStartTime);
+            Assert.Equal(newInput.PreferredEndTime,reference.PreferredEndTime);Assert.Equal("Europe/London",reference.TimeZoneId);
             Assert.Null(reference.CategoryName);Assert.Null(reference.ServiceArea);Assert.Null(reference.ServiceName);Assert.Null(reference.PropertyAddress);
             var historyPage=await historyRepository.GetHistoryAsync(f.UserId,new(),default);
             var projected=Assert.Single(historyPage.Items,i=>i.RequestId==referenceId);
             Assert.Equal(2,projected.CategoryId);Assert.Equal(3,projected.AreaTypeId);Assert.Equal(newInput.PropertyId,projected.PropertyId);
+            Assert.Equal(newInput.PreferredDate,projected.PreferredDate);Assert.Equal(newInput.PreferredStartTime,projected.PreferredStartTime);
             var failedId=await Request();f.QuoteProvider.Unavailable=true;
             Assert.Equal(HttpStatusCode.ServiceUnavailable,(await one.PostAsJsonAsync($"/api/service-requests/{failedId}/quotes",input)).StatusCode);
         }

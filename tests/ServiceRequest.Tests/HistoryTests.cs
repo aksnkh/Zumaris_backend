@@ -141,7 +141,8 @@ public sealed class HistoryRepositoryFake : IServiceHistoryRepository
         if (Item is { } x && x.UserId==user && (request.Status is null ||
             (request.Status=="Paid" ? x.PaymentStatus=="Paid" : x.Status==request.Status)))
             list.Add(new(x.RequestId,x.RequestNumber,x.ServiceName,x.CategoryName,null,x.ServiceArea,x.TechnicianName,
-                x.ServiceDate,x.Status,x.PaymentStatus,x.TotalAmount,x.CurrencyCode,x.CreatedAt) { CategoryId = x.CategoryId, AreaTypeId = x.AreaTypeId, PropertyId = x.PropertyId, PropertyAddress = x.PropertyAddress, TechnicianId = x.TechnicianId });
+                x.ServiceDate,x.Status,x.PaymentStatus,x.TotalAmount,x.CurrencyCode,x.CreatedAt) { CategoryId = x.CategoryId, AreaTypeId = x.AreaTypeId, PropertyId = x.PropertyId, PropertyAddress = x.PropertyAddress, TechnicianId = x.TechnicianId, PreferredDate=x.PreferredDate,
+                    PreferredStartTime=x.PreferredStartTime, PreferredEndTime=x.PreferredEndTime, TimeZoneId=x.TimeZoneId });
         return Task.FromResult(new PagedResult<ServiceHistoryDto>(list,request.PageNumber,request.PageSize,list.Count));
     }
     public Task<ServiceHistoryDetailDto?> GetByIdAsync(Guid user, Guid id, CancellationToken ct)

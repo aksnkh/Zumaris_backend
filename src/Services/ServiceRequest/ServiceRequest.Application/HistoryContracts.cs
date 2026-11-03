@@ -16,6 +16,10 @@ public sealed record ServiceHistoryDto(Guid RequestId, string RequestNumber, str
     public string? PropertyAddress { get; init; }
     public Guid? TechnicianId { get; init; }
     public string? CategoryIconUrl { get; init; }
+    public DateOnly? PreferredDate { get; init; }
+    public TimeOnly? PreferredStartTime { get; init; }
+    public TimeOnly? PreferredEndTime { get; init; }
+    public string? TimeZoneId { get; init; }
 }
 public sealed record ServiceHistoryDetailDto(Guid HistoryId, Guid RequestId, string RequestNumber,
     Guid UserId, Guid PropertyId, string? PropertyAddress, int CategoryId, string? CategoryName,
@@ -26,6 +30,10 @@ public sealed record ServiceHistoryDetailDto(Guid HistoryId, Guid RequestId, str
 {
     public int AreaTypeId { get; init; }
     public string? CategoryIconUrl { get; init; }
+    public DateOnly? PreferredDate { get; init; }
+    public TimeOnly? PreferredStartTime { get; init; }
+    public TimeOnly? PreferredEndTime { get; init; }
+    public string? TimeZoneId { get; init; }
 }
 
 public sealed record HistoryCategoryReference(int Id,string? Name,string? IconUrl);

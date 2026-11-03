@@ -1,10 +1,11 @@
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Configuration;
 using Zumaris.ServiceRequests.Infrastructure;
 using Xunit;
 namespace ServiceRequest.Tests;
 
-public class CategoryIconLookupTests
+public class HistoryReferenceLookupTests
 {
     [Theory]
     [InlineData(200,"{\"id\":1,\"iconUrl\":\"/service-catalog/api/categories/icons/1.svg\"}","/service-catalog/api/categories/icons/1.svg")]
@@ -17,8 +18,8 @@ public class CategoryIconLookupTests
     {
         var handler = new Handler(code,body);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5006/") };
-        var lookup = new CategoryIconLookup(client,NullLogger<CategoryIconLookup>.Instance);
-        Assert.Equal(expected,await lookup.GetIconUrlAsync(1,default));
+        var lookup = new HistoryReferenceLookup(client,new ConfigurationBuilder().Build(),NullLogger<HistoryReferenceLookup>.Instance);
+        Assert.Equal(expected,(await lookup.CategoryAsync(1,default))?.IconUrl);
         Assert.Equal("http://127.0.0.1:5006/api/categories/1",handler.Url);
     }
     private class Handler(int code,string body) : HttpMessageHandler

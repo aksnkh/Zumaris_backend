@@ -76,7 +76,13 @@ public sealed class RequestLifecycleAdoNetRepository(IConfiguration configuratio
         var current = await Lock(c, tx, userId, requestId, version, ct);
         if (!RequestStateRules.CanEdit(current.Status)) throw new RequestConflictException("Only Submitted requests can be edited.");
         await using var cmd = Command(c, tx, """
-            UPDATE service_requests SET property_id=@property, category_id=@category, area_type_id=@area,
+            UPDATE service_requests SET
+            service_name=CASE WHEN category_id<>@category OR area_type_id<>@area THEN NULL ELSE service_name END,
+            category_name=CASE WHEN category_id<>@category THEN NULL ELSE category_name END,
+            category_icon=CASE WHEN category_id<>@category THEN NULL ELSE category_icon END,
+            service_area=CASE WHEN area_type_id<>@area THEN NULL ELSE service_area END,
+            property_address=CASE WHEN property_id<>@property THEN NULL ELSE property_address END,
+            property_id=@property, category_id=@category, area_type_id=@area,
             description=@description, urgency=@urgency, preferred_date=@date, preferred_start_time=@start,
             preferred_end_time=@end, updated_at=@now, version=version+1 WHERE id=@id AND user_id=@user AND version=@version
             """, ("@property", request.PropertyId.ToString()), ("@category", request.CategoryId), ("@area", request.AreaTypeId),

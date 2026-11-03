@@ -9,6 +9,11 @@ namespace Zumaris.Provider.Api.Controllers;
 [Route("api/providers")]
 public sealed class ProviderQuoteController(IProviderQuoteRepository providers):ControllerBase
 {
+    [HttpGet("{providerId:guid}/summary")]
+    public async Task<IActionResult> Summary(Guid providerId,CancellationToken ct)
+    {
+        var item=await providers.SummaryAsync(providerId,ct);return item is null?NotFound():Ok(item);
+    }
     [HttpGet("me/quote-profile")]
     public async Task<IActionResult> Mine([FromQuery,Range(1,int.MaxValue)]int categoryId,CancellationToken ct)
     {

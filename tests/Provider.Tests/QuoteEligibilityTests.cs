@@ -47,6 +47,7 @@ public class QuoteEligibilityTests
     private class Session:IIdentitySessionValidator {public bool Active{get;set;}=true;public Task<bool>IsActiveAsync(string token,bool https,CancellationToken ct)=>Task.FromResult(Active);}
     private class FakeRepository:IProviderQuoteRepository
     {
+        public Task<ProviderPublicSummary?> SummaryAsync(Guid id,CancellationToken ct)=>Task.FromResult<ProviderPublicSummary?>(new(id,"Verified provider"));
         public Task<ProviderQuoteProfile?>GetAsync(Guid? user,Guid? provider,int category,CancellationToken ct)=>Task.FromResult(category==1?new ProviderQuoteProfile(Guid.NewGuid(),user??Guid.NewGuid(),"Verified provider",null,null,null,true,category):null);
     }
     [Fact]
@@ -84,6 +85,7 @@ public class ProviderMySqlTests
             Assert.NotNull(await repo.GetAsync(null,id,1,default));
             await using(var cmd=new MySqlCommand("UPDATE providers SET is_active=0 WHERE id=@id",c)){cmd.Parameters.AddWithValue("@id",id.ToString());await cmd.ExecuteNonQueryAsync();}
             Assert.Null(await repo.GetAsync(user,null,1,default));
+            Assert.Equal("Test provider",(await repo.SummaryAsync(id,default))!.DisplayName);
         }
         finally
         {await using var cmd=new MySqlCommand("DELETE FROM provider_category_qualifications WHERE provider_id=@id;DELETE FROM providers WHERE id=@id",c);cmd.Parameters.AddWithValue("@id",id.ToString());await cmd.ExecuteNonQueryAsync();}

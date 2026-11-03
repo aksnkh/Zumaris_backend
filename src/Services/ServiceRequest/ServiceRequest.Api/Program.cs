@@ -43,11 +43,10 @@ if (!catalogUri.IsAbsoluteUri || !string.IsNullOrEmpty(catalogUri.UserInfo) ||
     !(catalogUri.Scheme == "https" || (catalogUri.Scheme == "http" && catalogUri.IsLoopback)) ||
     !catalogUri.AbsoluteUri.EndsWith('/'))
     throw new InvalidOperationException("ServiceCatalog:BaseUrl must use HTTPS or loopback HTTP and end with a slash.");
-builder.Services.AddHttpClient<ICategoryIconLookup, CategoryIconLookup>(client =>
+builder.Services.AddHttpClient<IHistoryReferenceLookup,HistoryReferenceLookup>(client=>
 {
-    client.BaseAddress = catalogUri;
-    client.Timeout = TimeSpan.FromSeconds(3);
-}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+    client.Timeout=TimeSpan.FromSeconds(3);
+}).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler {AllowAutoRedirect=false});
 builder.Services.AddHttpClient<IQuoteDisplayLookup,QuoteDisplayLookup>(client=>{
     client.BaseAddress=catalogUri;client.Timeout=TimeSpan.FromSeconds(2);
     if(catalogUri.IsLoopback)client.DefaultRequestHeaders.Add("X-Forwarded-Proto","https");

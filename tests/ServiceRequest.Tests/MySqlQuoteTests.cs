@@ -101,6 +101,18 @@ public class MySqlQuoteTests
             var validProfile=f.QuoteProvider.Users[tech1];f.QuoteProvider.Users[tech1]=validProfile with {IsVerified=false};
             Assert.Equal(HttpStatusCode.Forbidden,(await owner.PostAsync($"/api/quotes/{qualification.Id}/accept",null)).StatusCode);
             f.QuoteProvider.Users[tech1]=validProfile;
+            var referenceId=await Request();
+            await using(var snapshot=new MySqlCommand("UPDATE service_requests SET category_name='Old category',service_area='Old area',service_name='Old service',category_icon='old.svg' WHERE id=@id",c))
+            {snapshot.Parameters.AddWithValue("@id",referenceId.ToString());await snapshot.ExecuteNonQueryAsync();}
+            var lifecycle=new RequestLifecycleAdoNetRepository(config);var historyRepository=new ServiceHistoryAdoNetRepository(config);
+            var newInput=RequestFactory.Valid() with {CategoryId=2,AreaTypeId=3};
+            await lifecycle.UpdateAsync(f.UserId,referenceId,newInput,1,f.Clock.Now.UtcDateTime,default);
+            var reference=await historyRepository.GetByIdAsync(f.UserId,referenceId,default);
+            Assert.Equal(2,reference!.CategoryId);Assert.Equal(3,reference.AreaTypeId);Assert.Equal(newInput.PropertyId,reference.PropertyId);
+            Assert.Null(reference.CategoryName);Assert.Null(reference.ServiceArea);Assert.Null(reference.ServiceName);Assert.Null(reference.PropertyAddress);
+            var historyPage=await historyRepository.GetHistoryAsync(f.UserId,new(),default);
+            var projected=Assert.Single(historyPage.Items,i=>i.RequestId==referenceId);
+            Assert.Equal(2,projected.CategoryId);Assert.Equal(3,projected.AreaTypeId);Assert.Equal(newInput.PropertyId,projected.PropertyId);
             var failedId=await Request();f.QuoteProvider.Unavailable=true;
             Assert.Equal(HttpStatusCode.ServiceUnavailable,(await one.PostAsJsonAsync($"/api/service-requests/{failedId}/quotes",input)).StatusCode);
         }

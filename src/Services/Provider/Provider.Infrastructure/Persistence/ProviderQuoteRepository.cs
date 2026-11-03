@@ -4,6 +4,15 @@ using Zumaris.Provider.Application;
 namespace Zumaris.Provider.Infrastructure.Persistence;
 public sealed class ProviderQuoteRepository(IConfiguration configuration):IProviderQuoteRepository
 {
+    public async Task<ProviderPublicSummary?> SummaryAsync(Guid providerId,CancellationToken ct)
+    {
+        var cs=configuration.GetConnectionString("DefaultConnection")??throw new InvalidOperationException("DefaultConnection is required.");
+        await using var c=new MySqlConnection(cs);await c.OpenAsync(ct);
+        // Verified business display identity can remain visible on historical work even when inactive.
+        await using var cmd=new MySqlCommand("SELECT id,display_name FROM providers WHERE id=@id AND is_verified=1",c);
+        cmd.Parameters.AddWithValue("@id",providerId.ToString());await using var reader=await cmd.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct)?new(reader.GetGuid(0),reader.GetString(1)):null;
+    }
     public async Task<ProviderQuoteProfile?> GetAsync(Guid? userId,Guid? providerId,int categoryId,CancellationToken ct)
     {
         var cs=configuration.GetConnectionString("DefaultConnection")??throw new InvalidOperationException("DefaultConnection is required.");

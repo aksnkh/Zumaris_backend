@@ -38,8 +38,8 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
             services.RemoveAll<IQuoteDisplayLookup>(); services.AddSingleton<IQuoteDisplayLookup>(new QuoteDisplayFake());
             services.RemoveAll<IServiceRequestRepository>(); services.RemoveAll<IIdentitySessionValidator>();
             services.RemoveAll<IServiceHistoryRepository>();
-            services.RemoveAll<ICategoryIconLookup>();
-            services.AddSingleton<ICategoryIconLookup>(Icons);
+            services.RemoveAll<IHistoryReferenceLookup>();
+            services.AddSingleton<IHistoryReferenceLookup>(Icons);
             services.AddSingleton<IServiceHistoryRepository>(HistoryRepository);
             services.RemoveAll<TimeProvider>(); services.RemoveAll<IRequestLifecycleRepository>();
             services.AddSingleton<IServiceRequestRepository>(Repository);
@@ -194,11 +194,18 @@ public sealed class MemoryRequests : IServiceRequestRepository, IRequestLifecycl
     }
 }
 
-public sealed class IconLookup : ICategoryIconLookup
+public sealed class IconLookup : IHistoryReferenceLookup
 {
     public string? Url { get; set; }
     public int Calls { get; private set; }
-    public Task<string?> GetIconUrlAsync(int categoryId, CancellationToken ct) { Calls++; return Task.FromResult(Url); }
+    public string? CategoryName {get;set;}
+    public string? AreaName {get;set;}
+    public string? Address {get;set;}
+    public string? ProviderName {get;set;}
+    public Task<HistoryCategoryReference?> CategoryAsync(int categoryId,CancellationToken ct) {Calls++;return Task.FromResult<HistoryCategoryReference?>(new(categoryId,CategoryName,Url));}
+    public Task<IReadOnlyDictionary<int,string>> AreasAsync(string? bearer,CancellationToken ct)=>Task.FromResult<IReadOnlyDictionary<int,string>>(AreaName is null?new Dictionary<int,string>():new Dictionary<int,string>{{1,AreaName}});
+    public Task<string?> PropertyAddressAsync(Guid id,string? bearer,CancellationToken ct)=>Task.FromResult(Address);
+    public Task<string?> ProviderNameAsync(Guid id,string? bearer,CancellationToken ct)=>Task.FromResult(ProviderName);
 }
 
 public sealed class QuoteProviderFake : IProviderQuoteEligibility

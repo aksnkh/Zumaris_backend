@@ -47,7 +47,9 @@ public sealed class ServiceHistoryAdoNetRepository(IConfiguration configuration)
             while (await r.ReadAsync(ct))
                 items.Add(new(r.GetGuid(r.GetOrdinal("id")), r.GetString("request_number"), Text(r,"service_name"),
                     Text(r,"category_name"), Text(r,"category_icon"), Text(r,"service_area"), Text(r,"technician_name"),
-                    Date(r,"service_date"), Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value) { CategoryId = r.GetInt32("category_id") });
+                    Date(r,"service_date"), Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value) { CategoryId = r.GetInt32("category_id"), AreaTypeId = r.GetInt32("area_type_id"),
+                        PropertyId = r.GetGuid(r.GetOrdinal("property_id")), PropertyAddress = Text(r,"property_address"),
+                        TechnicianId = r.IsDBNull(r.GetOrdinal("technician_id")) ? null : r.GetGuid(r.GetOrdinal("technician_id")) });
         await tx.CommitAsync(ct);
         return new(items, request.PageNumber, request.PageSize, total);
     }
@@ -69,6 +71,6 @@ public sealed class ServiceHistoryAdoNetRepository(IConfiguration configuration)
             Text(r,"property_address"), r.GetInt32("category_id"), Text(r,"category_name"), Text(r,"service_name"),
             Text(r,"service_area"), Text(r,"description"), r.IsDBNull(r.GetOrdinal("technician_id")) ? null : r.GetGuid(r.GetOrdinal("technician_id")),
             Text(r,"technician_name"), Date(r,"service_date"), Date(r,"completed_at"), Date(r,"cancelled_at"), Text(r,"cancellation_reason"),
-            Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value, Date(r,"updated_at"));
+            Status(r), r.GetString("payment_status"), Amount(r), Text(r,"currency_code"), Date(r,"created_at")!.Value, Date(r,"updated_at")) { AreaTypeId = r.GetInt32("area_type_id"), CategoryIconUrl = Text(r,"category_icon") };
     }
 }

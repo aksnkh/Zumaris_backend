@@ -8,6 +8,34 @@ namespace ServiceRequest.Tests;
 
 public sealed class HistoryTests
 {
+    [Fact]
+    public async Task Missing_history_names_are_resolved_for_list_and_detail_without_faking_financial_or_completion_data()
+    {
+        using var f=new RequestFactory();using var c=f.Client();var id=Guid.NewGuid();
+        f.HistoryRepository.Item=new(id,id,"SR-"+id.ToString("N"),f.UserId,Guid.NewGuid(),null,1,null,null,null,
+            "A leaking tap requires repair.",Guid.NewGuid(),null,null,null,null,null,"Assigned","Unpaid",null,null,DateTime.UtcNow,null) {AreaTypeId=1};
+        f.Icons.CategoryName="Plumbing";f.Icons.AreaName="Kitchen";f.Icons.Address="12 Example Road, London";f.Icons.ProviderName="Verified Technician";
+        var page=await c.GetFromJsonAsync<PagedResult<ServiceHistoryDto>>("/api/service-history");var row=Assert.Single(page!.Items);
+        Assert.Equal("Plumbing",row.CategoryName);Assert.Equal("Kitchen",row.ServiceArea);Assert.Equal("Plumbing",row.ServiceName);
+        Assert.Equal("12 Example Road, London",row.PropertyAddress);Assert.Equal("Verified Technician",row.TechnicianName);
+        Assert.Null(row.CategoryIconUrl);Assert.Null(row.ServiceDate);Assert.Null(row.TotalAmount);Assert.Null(row.CurrencyCode);
+        var detail=await c.GetFromJsonAsync<ServiceHistoryDetailDto>("/api/service-history/"+id);
+        Assert.Equal(row.CategoryName,detail!.CategoryName);Assert.Equal(row.ServiceName,detail.ServiceName);Assert.Equal(row.ServiceArea,detail.ServiceArea);
+        Assert.Equal(row.PropertyAddress,detail.PropertyAddress);Assert.Equal(row.TechnicianName,detail.TechnicianName);
+        // Existing snapshots have not been mutated by a GET.
+        Assert.Null(f.HistoryRepository.Item.CategoryName);
+    }
+    [Fact]
+    public async Task Stored_historical_names_are_preserved_when_current_reference_names_differ()
+    {
+        using var f=new RequestFactory();using var c=f.Client();var id=Guid.NewGuid();
+        f.HistoryRepository.Item=new(id,id,"SR-"+id.ToString("N"),f.UserId,Guid.NewGuid(),"Original address",1,"Original category","Original service","Original area",
+            "A leaking tap requires repair.",Guid.NewGuid(),"Original technician",null,null,null,null,"Completed","Paid",10,"GBP",DateTime.UtcNow,null) {AreaTypeId=1};
+        f.Icons.CategoryName="Renamed category";f.Icons.AreaName="Renamed area";f.Icons.Address="New address";f.Icons.ProviderName="New name";
+        var item=await c.GetFromJsonAsync<ServiceHistoryDetailDto>("/api/service-history/"+id);
+        Assert.Equal("Original category",item!.CategoryName);Assert.Equal("Original category",item.ServiceName);Assert.Equal("Original area",item.ServiceArea);
+        Assert.Equal("Original address",item.PropertyAddress);Assert.Equal("Original technician",item.TechnicianName);
+    }
     [Theory]
     [InlineData("/api/service-history")]
     [InlineData("/api/service-history/00000000-0000-0000-0000-000000000001")]
@@ -113,7 +141,7 @@ public sealed class HistoryRepositoryFake : IServiceHistoryRepository
         if (Item is { } x && x.UserId==user && (request.Status is null ||
             (request.Status=="Paid" ? x.PaymentStatus=="Paid" : x.Status==request.Status)))
             list.Add(new(x.RequestId,x.RequestNumber,x.ServiceName,x.CategoryName,null,x.ServiceArea,x.TechnicianName,
-                x.ServiceDate,x.Status,x.PaymentStatus,x.TotalAmount,x.CurrencyCode,x.CreatedAt) { CategoryId = x.CategoryId });
+                x.ServiceDate,x.Status,x.PaymentStatus,x.TotalAmount,x.CurrencyCode,x.CreatedAt) { CategoryId = x.CategoryId, AreaTypeId = x.AreaTypeId, PropertyId = x.PropertyId, PropertyAddress = x.PropertyAddress, TechnicianId = x.TechnicianId });
         return Task.FromResult(new PagedResult<ServiceHistoryDto>(list,request.PageNumber,request.PageSize,list.Count));
     }
     public Task<ServiceHistoryDetailDto?> GetByIdAsync(Guid user, Guid id, CancellationToken ct)

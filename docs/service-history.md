@@ -74,3 +74,22 @@ GET /service-request/api/service-requests/{id}/timeline
 تست‌های HTTP، احراز هویت، نشست غیرفعال، استخراج مالک از توکن، دسترسی به جزئیات، فیلترها، داده‌های nullable، صفحه‌بندی، خروجی خالی و سند Swagger را با repository جایگزین بررسی می‌کنند. اجرای migration و queryها روی MySQL واقعی در این محیط انجام نشده است؛ هیچ تغییری روی دیتابیس سرور اعمال نشده است.
 
 </div>
+
+## Completing reference names
+
+`service_requests.category_id` is the service/category identifier in the current product model. There is no separate serviceId or service table: history `serviceName` is an alias of the resolved `categoryName` (for example both are `Plumbing`). The independent legacy `service_name` text is not treated as a separate authoritative service name.
+
+Both list and detail complete missing reference fields using the owner service APIs:
+
+- Category name and current icon: ServiceCatalog `GET /api/categories/{categoryId}`. A category name is usable even when iconUrl is null.
+- `serviceArea`: the matching `areaTypeId` from ServiceCatalog `GET /api/areas`.
+- `propertyAddress`: Property `GET /api/properties/{propertyId}`, using the caller's Bearer token and normal property access rules.
+- `technicianName`: Provider `GET /api/providers/{providerId}/summary`, which exposes only the verified professional's display identity. It does not expose personal contact or login details; verified inactive providers can still be named on historical work.
+
+Stored historical category/area/address/technician snapshots take precedence; missing snapshots are enriched from the current records. serviceName always equals the resulting categoryName. CategoryIconUrl uses current icon metadata with a stored-icon fallback. Reference calls are deduplicated per page, limited to four concurrent calls, and share a three-second budget. No cross-schema SQL, raw credentials or service-account impersonation is used. These GETs do not modify stored history.
+
+List items now include the real propertyId, areaTypeId and technicianId as well as categoryId; detail also includes areaTypeId. If editing an order changes one of its reference IDs, its corresponding stale snapshot columns are cleared by the existing update transaction, so future history does not display the previous category/area/address.
+
+A missing related record, lost property permission or an unavailable reference service can still leave its optional value null; stored snapshots remain available. A missing assigned technician, actual service date, payment amount or currency is not filled with fabricated values. Preferred appointments are not actual service dates, and quote totals are not settled payment totals.
+
+Publish ServiceRequest.Api and Provider.Api for this change. Existing Property/ServiceCatalog APIs and Gateway routes suffice; no new SQL migration is required. Configure ServiceRequest `Property:BaseUrl` as `http://127.0.0.1:5003/` in Production (5107 in Development); existing ServiceCatalog and Provider base URLs remain in use. Resolve relative icon URLs against the API origin in the frontend. Use the real user's JWT when testing protected reference lookups.

@@ -176,3 +176,27 @@ View Details به GET همان quoteId متصل می‌شود. Amount، Labour،
 تست‌های واقعی فقط روی دیتابیس‌های loopback جدا به نام‌های `zumaris_quotes_test` و `zumaris_provider_test` با متغیرهای `ZUMARIS_QUOTES_MYSQL_TEST_CONNECTION` و `ZUMARIS_PROVIDER_MYSQL_TEST_CONNECTION` اجرا می‌شوند؛ هرگز اتصال دیتابیس برنامه را به تست ندهید. در نبود متغیرها تست‌های MySQL صریحاً skip می‌شوند. انتشار روی IIS و ثبت تکنسین‌های واقعی باید توسط شما انجام شود.
 
 </div>
+
+
+## Screen field mapping
+
+All customer quote routes below use the ServiceRequest gateway prefix `/service-request` and require the owning customer's JWT. Successful quote data is in `response.payload`; customer messages are in `response.message`.
+
+| Screen element | QuoteDto fields |
+| --- | --- |
+| Card / technician identity | `providerId`, `providerName`, `providerPhotoUrl` |
+| Sent a quote / relative time | `createdAtUtc` (format relative time in the client) |
+| Work heading | `categoryName`, `areaName`, `requestDescription` |
+| Pending badge | `status` |
+| Price / quoted amount | `totalAmount`, `currencyCode` |
+| Request reference | `requestNumber`, `requestId` |
+| Technician reputation | `providerRating`, `providerCompletedJobs`, `providerVerified` |
+| Includes labour / parts disclaimer | `priceSummary` |
+| Labour / call-out / total | `labourAmount`, `calloutAmount`, `totalAmount` |
+| Provider note | `providerNote` |
+| Your request | `requestDescription`, `propertyAddress` |
+| Preferred visit | `preferredDate`, `preferredStartTime`, `preferredEndTime`, `timeZoneId` |
+
+Use `GET /service-request/api/quotes?status=Pending&propertyId={propertyId}` for Main; omit propertyId for all properties. Cards are in `payload.items`. Use each card's `id` for `GET /service-request/api/quotes/{id}` and `POST /service-request/api/quotes/{id}/accept` or `/decline`. POST decisions have no body, version or idempotency key. Both return the updated QuoteDto in `payload`. Refresh Main after success. Hide or disable decision buttons once the quote is no longer Pending; the server remains authoritative and can return 409 when expired or changed.
+
+Provider supplies the verified professional identity and category eligibility through its existing quote-profile endpoints; ServiceRequest owns quote creation, snapshots, customer listing, decisions and assignment. No additional table or SQL migration is required for these screens. Populate existing Provider profile/qualification records with real data using `database/provider/001_provider_quote_profiles.sql` as the schema reference. Never invent ratings, verification, photographs or completed-job counts to match the mockup. Render absent optional values gracefully. There is no online-presence feature implied by “sent a quote”.

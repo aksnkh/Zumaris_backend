@@ -54,9 +54,12 @@ public sealed class QuotesController(QuoteService quotes):ControllerBase
     [ProducesResponseType(typeof(Response<QuoteDto>),200)]
     public async Task<IActionResult> Details(Guid id,CancellationToken ct)=>Ok(Success(await quotes.GetAsync(UserId,id,ct),"Quote retrieved successfully."));
     [HttpPost("{id:guid}/accept")]
+    [ProducesResponseType(typeof(Response<QuoteDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Accept(Guid id,CancellationToken ct)=>Ok(Success(await quotes.DecideAsync(UserId,id,"Accepted",Bearer,ct),"Quote accepted successfully."));
     [HttpPost("{id:guid}/decline")]
+    [ProducesResponseType(typeof(Response<QuoteDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Decline(Guid id,CancellationToken ct)=>Ok(Success(await quotes.DecideAsync(UserId,id,"Declined",Bearer,ct),"Quote declined successfully."));
     [HttpPost("{id:guid}/withdraw")]
+    [ProducesResponseType(typeof(Response<QuoteDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Withdraw(Guid id,CancellationToken ct)=>Ok(Success(await quotes.DecideAsync(UserId,id,"Withdrawn",Bearer,ct),"Quote withdrawn successfully."));
 }

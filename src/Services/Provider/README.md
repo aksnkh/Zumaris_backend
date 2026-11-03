@@ -1,17 +1,11 @@
 # Provider
 
-Scaffold only: .NET 8 / Clean Architecture. No business endpoints, authentication wiring or persistence implementation yet.
+Provider owns professional identity and category qualifications. Verified/active quote-profile reads now require Identity JWT/session validation and database-backed qualification checks. No provider self-verification or administrative write API exists.
 
-- Domain: business entities and rules; no dependencies on outer layers.
-- Application: use cases and repository/integration contracts; references Domain.
-- Infrastructure: future MySQL stored procedures/direct SQL and integrations; references Application and Domain. No ORM.
-- Api: HTTP composition root; references Application and Infrastructure.
-- Development: http://localhost:5111/swagger
-- Liveness: GET /health (process check only, not business/database readiness).
-- Planned Gateway prefix: /provider (not registered until implementation).
-- Planned MySQL schema: zumaris_provider (not created).
-- Suggested future IIS HTTP port: 5007 (not configured).
+- Development: port 5111; IIS internal port 5007.
+- Gateway prefix: `/provider`.
+- Schema: `zumaris_provider`; manually run `database/provider/001_provider_quote_profiles.sql`.
+- `GET /api/providers/me/quote-profile?categoryId=1` and `GET /api/providers/{providerId}/quote-profile?categoryId=1` provide quote eligibility.
+- `/health` is liveness only.
 
-No database scripts run automatically. Add manual SQL migrations under database/provider.
-Configure Identity JWT/session validation and resource permissions before exposing business endpoints.
-See docs/service-architecture.md for ownership and cross-service boundaries.
+See [quote workflow, manual SQL and IIS setup](../../../docs/service-request-quotes.md). Other professional profile, review and verification-management capabilities remain separate work. Cross-service communication uses APIs, never cross-schema joins.

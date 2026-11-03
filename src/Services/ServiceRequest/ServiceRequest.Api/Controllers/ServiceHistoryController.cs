@@ -10,6 +10,7 @@ namespace Zumaris.ServiceRequests.Api.Controllers;
 [Route("api/service-history")]
 public sealed class ServiceHistoryController(IServiceHistoryService service) : ControllerBase
 {
+    private string Bearer => Request.Headers.Authorization.ToString()["Bearer ".Length..];
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<ServiceHistoryDto>), StatusCodes.Status200OK)]
@@ -17,7 +18,7 @@ public sealed class ServiceHistoryController(IServiceHistoryService service) : C
         [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
         Response.Headers.CacheControl = "no-store";
-        return Ok(await service.GetHistoryAsync(UserId, new(status, pageNumber, pageSize), ct));
+        return Ok(await service.GetHistoryAsync(UserId, new(status, pageNumber, pageSize), ct, Bearer));
     }
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(ServiceHistoryDetailDto), StatusCodes.Status200OK)]
@@ -25,7 +26,7 @@ public sealed class ServiceHistoryController(IServiceHistoryService service) : C
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)
     {
         Response.Headers.CacheControl = "no-store";
-        var item = await service.GetByIdAsync(UserId, id, ct);
+        var item = await service.GetByIdAsync(UserId, id, ct, Bearer);
         return item is null ? NotFound() : Ok(item);
     }
 }

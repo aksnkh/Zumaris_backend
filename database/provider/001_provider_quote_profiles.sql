@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS provider_category_qualifications (
     CONSTRAINT fk_provider_category_provider FOREIGN KEY(provider_id) REFERENCES providers(id),
     CONSTRAINT ck_provider_category CHECK(category_id>0)
 ) ENGINE=InnoDB;
--- Admin must insert the real Provider GUID and Identity user GUID, verify evidence,
--- then explicitly enable is_verified and the appropriate is_qualified rows.
--- Gas category qualification must be granted only after verifying Gas Safe eligibility.
--- No cross-service FK or reads into Identity/ServiceCatalog. Runtime requires SELECT only.
+-- For the complete workflow also apply 002_onboarding_reviews.sql.
+-- Providers self-declare categories through their profile API; is_qualified represents
+-- that declaration, not category approval by administrators. Administrators review
+-- identity/documents only, through the revision-checked API. Do not seed fake approvals.
+-- No cross-service FK or reads into Identity/ServiceCatalog.

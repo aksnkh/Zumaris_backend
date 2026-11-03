@@ -20,6 +20,18 @@ if (!identityUri.IsAbsoluteUri || (identityUri.Scheme != "https" && !(identityUr
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IProviderQuoteRepository,ProviderQuoteRepository>();
 builder.Services.AddHealthChecks();
+builder.Services.AddScoped<IProviderAccountRepository,ProviderAccountRepository>();
+builder.Services.AddScoped<IProviderWorkflowClient,ProviderWorkflowClient>();
+builder.Services.AddScoped<Zumaris.Provider.Api.Controllers.ProviderWorkflowFilter>();
+builder.Services.AddScoped<Zumaris.Provider.Api.Controllers.ProviderAdminFilter>();
+foreach(var service in new[]{("IdentityAdmin",identityUri), ("ServiceRequest",new Uri(builder.Configuration["ServiceRequest:BaseUrl"]??"http://127.0.0.1:5002/"))})
+{
+    var endpoint=service.Item2;
+    if(!endpoint.IsAbsoluteUri||!string.IsNullOrEmpty(endpoint.UserInfo)||!endpoint.AbsoluteUri.EndsWith('/')||!(endpoint.Scheme=="https"||endpoint.Scheme=="http"&&endpoint.IsLoopback))
+        throw new InvalidOperationException("Reference service URLs must use HTTPS or loopback HTTP and end with a slash.");
+    builder.Services.AddHttpClient(service.Item1,client=>{client.BaseAddress=endpoint;client.Timeout=TimeSpan.FromSeconds(5);if(endpoint.IsLoopback)client.DefaultRequestHeaders.Add("X-Forwarded-Proto","https");})
+        .ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
+}
 builder.Services.AddHttpClient<IIdentitySessionValidator, IdentitySessionValidator>(client =>
 {
     client.BaseAddress = identityUri;

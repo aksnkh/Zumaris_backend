@@ -2,6 +2,8 @@
 
 # پیشنهاد قیمت تکنسین و تصمیم مشتری
 
+> مسیر کامل پروفایل، تأیید مدارک، خوداظهاری تخصص و اجرای کار در [راهنمای گردش تکنسین](technician-order-workflow.md) مستند شده است. تصمیم جدید محصول: تأیید هویت و مدارک با ادمین است؛ دسته‌های تخصصی با خوداظهاری تکنسین ثبت می‌شوند و تأیید مجزا نمی‌خواهند.
+
 مالک Quote سرویس ServiceRequest است. هویت حرفه‌ای و صلاحیت تکنسین در Provider نگهداری و از API بررسی می‌شود. Identity حساب و نشست را تأمین می‌کند؛ Billing در این تغییر دخیل نیست. این ریپوزیتوری بک‌اند است و صفحهٔ Main/Quote Details در فرانت باید به APIهای این سند متصل شود.
 
 ## قواعد اصلی
@@ -104,7 +106,7 @@ propertyAddress از snapshot موجود سفارش می‌آید و ممکن ا
 
 ## ساخت Provider و صلاحیت‌ها
 
-Provider پیش از این scaffold بود؛ اکنون JWT/تأیید نشست، API خواندن پروفایل مجاز برای Quote و جدول‌های حداقلی هویت حرفه‌ای/صلاحیت دارد. این تغییر سامانهٔ کامل بررسی مدارک، آپلود عکس حرفه‌ای یا مدیریت رتبه‌بندی نیست. مدیر فقط پس از بررسی واقعی، رکورد و صلاحیت را فعال می‌کند؛ به‌ویژه category=4 (Gas) فقط پس از تأیید Gas Safe.
+Provider اکنون پروفایل، مدارک خصوصی و بررسی مدیر دارد. تکنسین دسته‌های کاری را در پروفایل خود اعلام می‌کند؛ مدیر هویت و مدارک را تأیید می‌کند و تأیید تخصص جداگانه نداریم. ارسال Quote نیازمند پروفایل فعال و تأییدشده، مدارک بررسی‌شده و تخصص اعلام‌شدهٔ مرتبط است.
 
 APIهای Provider:
 
@@ -128,28 +130,11 @@ database/service-request/005_service_request_quotes.sql
 
 اسکریپت دوم به ساختار کامل فعلی سفارش (001/002/003 و شناسه‌های عددی 004 در نصب قدیمی) نیاز دارد. هر دو اسکریپت روی ساختار یکسان قابل تکرارند و داده‌های موجود را حذف نمی‌کنند. هیچ SQL روی دیتابیس شما خودکار اجرا نمی‌شود.
 
-۲. برای تکنسین، ابتدا حساب واقعی Identity داشته باشید. مقادیر واقعی را جایگزین نمونه‌های زیر کنید؛ هیچ کاربر/صلاحیت ساختگی در اسکریپت اصلی seed نشده است:
+۲. تکنسین ابتدا حساب واقعی Identity داشته باشد و از API پروفایل و مدارک، سپس تأیید مدیر استفاده کند؛ مسیرهای کامل و اسکریپت 002 در [راهنمای گردش تکنسین](technician-order-workflow.md) آمده‌اند. پروفایل قدیمی بدون مدارک و بررسی ادمین برای Quote جدید کافی نیست.
 
-```sql
-USE zumaris_provider;
--- نمونهٔ قالب؛ قبل از اجرا شناسه و نام واقعی را جایگزین کنید.
--- SET @provider_id = UUID();
--- INSERT INTO providers (id,user_id,display_name,is_verified,is_active)
--- VALUES (@provider_id,'<REAL IDENTITY USER GUID>','<REAL BUSINESS NAME>',0,1);
--- INSERT INTO provider_category_qualifications (provider_id,category_id,is_qualified)
--- VALUES (@provider_id,1,0);
--- فقط پس از بررسی مدارک واقعی:
--- UPDATE providers SET is_verified=1 WHERE id=@provider_id;
--- UPDATE provider_category_qualifications SET is_qualified=1 WHERE provider_id=@provider_id AND category_id=1;
-```
+Provider.photo_url در صورت موجودبودن آدرس عمومیِ عکس حرفه‌ای است؛ برای عکس خالی فرانت placeholder نمایش دهد. امتیاز از نظرهای کار انجام‌شده و تعداد کار از ServiceRequest گرفته می‌شود؛ سابقهٔ Quote snapshot است.
 
-Provider.photo_url اختیاری و باید آدرس عمومیِ عکس حرفه‌ای مورد تأیید مدیر باشد؛ URL خصوصی `/identity/api/profile/me/photo` را اینجا نگذارید، چون آن مسیر عکس شخصِ صاحب توکن را می‌دهد. برای عکس خالی، فرانت placeholder نمایش دهد. rating و completed_jobs را بدون دادهٔ معتبر پر نکنید.
-
-۳. حساب app در دیتابیس جدید Provider به SELECT نیاز دارد. با Host واقعی حساب اجرا کنید، مثلاً اگر همان app@localhost است:
-
-```sql
-GRANT SELECT ON zumaris_provider.* TO 'app'@'localhost';
-```
+۳. حساب app برای Provider اکنون SELECT/INSERT/UPDATE نیاز دارد؛ مجوزهای کامل این قابلیت در راهنمای گردش تکنسین آمده‌اند. دسترسی DDL فقط برای اجرای دستی SQL توسط مدیر دیتابیس است.
 
 ServiceRequest روی جدول Quote به SELECT/INSERT/UPDATE و روی جدول‌های سفارش/تاریخچه به مجوزهای DML قبلی نیاز دارد. DDL فقط برای root/admin است.
 
@@ -161,7 +146,7 @@ ServiceRequest روی جدول Quote به SELECT/INSERT/UPDATE و روی جدو�
 - ServiceRequest.Provider:BaseUrl به `http://127.0.0.1:5007/` و در Development به 5111 تنظیم شده است. ServiceCatalog:BaseUrl موجود برای تکمیل نام/آیکن استفاده می‌شود. برای سرویس‌های روی ماشین دیگر HTTPS لازم است.
 - ServiceRequest.Api و YarpGateway را هم منتشر کنید. Gateway مسیر جدید `/provider/{**catch-all}` و گزینهٔ Provider Service در Swagger دارد؛ مسیرهای Quote از catch-all موجود ServiceRequest عبور می‌کنند.
 - مقادیر JWT/اتصال واقعی و فایل‌های appsettings.Local.json سرور حفظ شوند. Provider باید به zumaris_provider و ServiceRequest به zumaris_service_request وصل باشد؛ نام دیتابیس Identity را اشتباهاً کپی نکنید.
-- نصب فعلی Provider فقط endpoint خواندن و schema حرفه‌ای لازم برای Quote را فراهم می‌کند؛ admin UI و فرانت صفحات در این مخزن ساخته نشده‌اند.
+- Provider دارای API پروفایل، مدارک، تأیید مدیر و نظر مشتری است؛ admin UI و فرانت صفحات در این مخزن ساخته نشده‌اند.
 
 ## اتصال صفحهٔ Main و Quote Details
 
@@ -199,4 +184,4 @@ All customer quote routes below use the ServiceRequest gateway prefix `/service-
 
 Use `GET /service-request/api/quotes?status=Pending&propertyId={propertyId}` for Main; omit propertyId for all properties. Cards are in `payload.items`. Use each card's `id` for `GET /service-request/api/quotes/{id}` and `POST /service-request/api/quotes/{id}/accept` or `/decline`. POST decisions have no body, version or idempotency key. Both return the updated QuoteDto in `payload`. Refresh Main after success. Hide or disable decision buttons once the quote is no longer Pending; the server remains authoritative and can return 409 when expired or changed.
 
-Provider supplies the verified professional identity and category eligibility through its existing quote-profile endpoints; ServiceRequest owns quote creation, snapshots, customer listing, decisions and assignment. No additional table or SQL migration is required for these screens. Populate existing Provider profile/qualification records with real data using `database/provider/001_provider_quote_profiles.sql` as the schema reference. Never invent ratings, verification, photographs or completed-job counts to match the mockup. Render absent optional values gracefully. There is no online-presence feature implied by “sent a quote”.
+Provider supplies the verified professional identity and category eligibility through its existing quote-profile endpoints; ServiceRequest owns quote creation, snapshots, customer listing, decisions and assignment. No additional table or SQL migration is required for these screens. Use the profile/document APIs and administrator review described in `docs/technician-order-workflow.md`; apply Provider scripts 001 and 002. Never invent ratings, verification, photographs or completed-job counts to match the mockup. Render absent optional values gracefully. There is no online-presence feature implied by “sent a quote”.

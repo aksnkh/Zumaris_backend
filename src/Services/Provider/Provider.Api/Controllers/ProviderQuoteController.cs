@@ -7,7 +7,7 @@ namespace Zumaris.Provider.Api.Controllers;
 [Authorize]
 [ResponseCache(NoStore=true,Location=ResponseCacheLocation.None)]
 [Route("api/providers")]
-public sealed class ProviderQuoteController(IProviderQuoteRepository providers):ControllerBase
+public sealed class ProviderQuoteController(IProviderQuoteRepository providers,IProviderWorkflowClient workflow):ControllerBase
 {
     [HttpGet("{providerId:guid}/summary")]
     public async Task<IActionResult> Summary(Guid providerId,CancellationToken ct)
@@ -18,6 +18,7 @@ public sealed class ProviderQuoteController(IProviderQuoteRepository providers):
     public async Task<IActionResult> Mine([FromQuery,Range(1,int.MaxValue)]int categoryId,CancellationToken ct)
     {
         var item=await providers.GetAsync(Guid.Parse(User.FindFirst("sub")!.Value),null,categoryId,ct);
+        if(item is not null)item=item with {CompletedJobs=await workflow.CompletedJobsAsync(item.ProviderId,Request.Headers.Authorization.ToString()["Bearer ".Length..],ct)??item.CompletedJobs};
         return item is null?NotFound():Ok(item);
     }
     // Public business identity, accessible to authenticated customers for quote eligibility checks.
@@ -25,6 +26,7 @@ public sealed class ProviderQuoteController(IProviderQuoteRepository providers):
     public async Task<IActionResult> Public(Guid providerId,[FromQuery,Range(1,int.MaxValue)]int categoryId,CancellationToken ct)
     {
         var item=await providers.GetAsync(null,providerId,categoryId,ct);
+        if(item is not null)item=item with {CompletedJobs=await workflow.CompletedJobsAsync(item.ProviderId,Request.Headers.Authorization.ToString()["Bearer ".Length..],ct)??item.CompletedJobs};
         return item is null?NotFound():Ok(item);
     }
 }

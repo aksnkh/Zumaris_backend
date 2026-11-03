@@ -11,6 +11,7 @@ public sealed class QuoteMySqlFactAttribute:FactAttribute
 {
     public QuoteMySqlFactAttribute(){if(string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ZUMARIS_QUOTES_MYSQL_TEST_CONNECTION")))Skip="Requires an isolated loopback zumaris_quotes_test MySQL database.";}
 }
+[Collection("Request MySQL")]
 public class MySqlQuoteTests
 {
     private static async Task<QuoteDto> Quote(HttpResponseMessage response,HttpStatusCode expected=HttpStatusCode.OK)

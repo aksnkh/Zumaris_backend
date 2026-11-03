@@ -20,6 +20,8 @@ public sealed class ProviderQuoteRepository(IConfiguration configuration):IProvi
         await using var cmd=new MySqlCommand("""
             SELECT p.* FROM providers p JOIN provider_category_qualifications q ON q.provider_id=p.id
             WHERE p.is_active=1 AND p.is_verified=1 AND q.is_qualified=1 AND q.category_id=@category
+            AND EXISTS(SELECT 1 FROM provider_onboarding o WHERE o.provider_id=p.id AND o.reviewed_revision=o.revision)
+            AND EXISTS(SELECT 1 FROM provider_documents d WHERE d.provider_id=p.id)
             AND ((@user IS NOT NULL AND p.user_id=@user) OR (@provider IS NOT NULL AND p.id=@provider))
             """,c);
         cmd.Parameters.AddWithValue("@user",userId?.ToString());cmd.Parameters.AddWithValue("@provider",providerId?.ToString());cmd.Parameters.AddWithValue("@category",categoryId);

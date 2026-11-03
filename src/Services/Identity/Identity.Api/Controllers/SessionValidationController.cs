@@ -8,8 +8,16 @@ namespace Identity.Api.Controllers;
 [Authorize]
 [DisableRateLimiting]
 [Route("api/auth/session")]
-public sealed class SessionValidationController : ControllerBase
+public sealed class SessionValidationController(Identity.Application.Abstractions.Persistence.IPlatformAdminRepository administrators) : ControllerBase
 {
+    [HttpGet("admin-access")]
+    public async Task<IActionResult> AdminAccess(CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "no-store";
+        return await administrators.IsAdminAsync(Guid.Parse(User.FindFirst("sub")!.Value), ct)
+            ? NoContent() : StatusCode(403, new { message = "Administrator access is required." });
+    }
+
     // JWT middleware has already validated signature, claims and the active session.
     [HttpGet]
     public IActionResult ValidateSession()

@@ -23,6 +23,8 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
     public SessionValidator Validator { get; } = new();
     public IconLookup Icons { get; } = new();
     public IQuoteRepository? QuoteRepositoryOverride { get; init; }
+    public ITechnicianWorkRepository? WorkRepositoryOverride {get;init;}
+    public TechnicianEligibilityFake WorkEligibility {get;}=new();
     public QuoteProviderFake QuoteProvider { get; } = new();
     public TestClock Clock { get; } = new();
     public string UploadRoot { get; } = Path.Combine(Path.GetTempPath(), "zumaris-test-photos-" + Guid.NewGuid().ToString("N"));
@@ -33,6 +35,8 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
         { ["Jwt:Key"] = Key, ["Jwt:Issuer"] = "request-tests", ["Jwt:Audience"] = "request-clients", ["Storage:RootPath"] = UploadRoot }));
         builder.ConfigureServices(services =>
         {
+            if(WorkRepositoryOverride is not null){services.RemoveAll<ITechnicianWorkRepository>();services.AddSingleton<ITechnicianWorkRepository>(WorkRepositoryOverride);}
+            services.RemoveAll<ITechnicianEligibilityClient>();services.AddSingleton<ITechnicianEligibilityClient>(WorkEligibility);
             services.RemoveAll<IQuoteRepository>(); services.AddSingleton<IQuoteRepository>(QuoteRepositoryOverride ?? new UnexpectedQuoteRepository());
             services.RemoveAll<IProviderQuoteEligibility>(); services.AddSingleton<IProviderQuoteEligibility>(QuoteProvider);
             services.RemoveAll<IQuoteDisplayLookup>(); services.AddSingleton<IQuoteDisplayLookup>(new QuoteDisplayFake());
@@ -238,4 +242,11 @@ public sealed class UnexpectedQuoteRepository:IQuoteRepository
     public Task<QuotePage>ListAsync(Guid actor,bool sent,string? status,Guid? property,int page,int size,DateTime now,CancellationToken ct)=>throw Unexpected();
     public Task<QuoteDto?>GetAsync(Guid actor,Guid id,DateTime now,CancellationToken ct)=>throw Unexpected();
     public Task<QuoteDto>DecideAsync(Guid actor,Guid id,string decision,DateTime now,CancellationToken ct)=>throw Unexpected();
+}
+
+public sealed class TechnicianEligibilityFake:ITechnicianEligibilityClient
+{
+ public Dictionary<Guid,int[]> Categories {get;}=new();
+ public Task<TechnicianEligibility> GetAsync(Guid actor,string bearer,CancellationToken ct)
+ {if(!Categories.TryGetValue(actor,out var cats))throw new QuoteForbiddenException();return Task.FromResult(new TechnicianEligibility(Guid.NewGuid(),actor,cats));}
 }

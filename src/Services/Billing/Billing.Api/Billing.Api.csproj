@@ -19,4 +19,6 @@
   <ItemGroup>
     <ProjectReference Include="../../../BuildingBlocks/Zumaris.BuildingBlocks.Common/Zumaris.BuildingBlocks.Common.csproj" />
   </ItemGroup>
+  <ItemGroup><PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.31" /></ItemGroup>
+  <ItemGroup><Content Update="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
 </Project>

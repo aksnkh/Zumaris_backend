@@ -34,7 +34,7 @@ app.UseCors();
         options.SwaggerEndpoint("/property/swagger/v1/swagger.json", "Property Service");
         options.SwaggerEndpoint("/service-catalog/swagger/v1/swagger.json", "Service Catalog Service");
         //options.SwaggerEndpoint("/home-passport/swagger/v1/swagger.json", "Home Passport Service");
-        //options.SwaggerEndpoint("/billing/swagger/v1/swagger.json", "Billing Service");
+        options.SwaggerEndpoint("/billing/swagger/v1/swagger.json", "Billing Service");
         //options.SwaggerEndpoint("/booking/swagger/v1/swagger.json", "Booking Service");
         //options.SwaggerEndpoint("/job-management/swagger/v1/swagger.json", "Job Management Service");
         //options.SwaggerEndpoint("/notification/swagger/v1/swagger.json", "Notification Service");

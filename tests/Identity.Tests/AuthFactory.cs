@@ -1,3 +1,4 @@
+using Identity.Application.Features.Signup;
 using Identity.Application.Features.Profile;
 using Identity.Application.Abstractions.Persistence;
 using Identity.Application.Features.Auth;
@@ -23,7 +24,8 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
     public FakeExternalLogins External { get; }
     public MemoryProfiles Profiles { get; }
     public string ProfilePhotoRoot { get; } = Path.Combine(Path.GetTempPath(),"zumaris-profile-tests-"+Guid.NewGuid().ToString("N"));
-    public AuthFactory() { External = new FakeExternalLogins(Users); Profiles = new MemoryProfiles(Users); }
+    public MemorySignup Signups {get;}
+    public AuthFactory() { External = new FakeExternalLogins(Users); Profiles = new MemoryProfiles(Users); Signups=new MemorySignup(Users,Profiles); }
     public const string BffKey = "test-only-bff-key-never-deploy-this-123456789";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -37,6 +39,7 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_,config) => config.AddInMemoryCollection(new Dictionary<string,string?> { ["ProfilePhotos:RootPath"]=ProfilePhotoRoot }));
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<ISignupRepository>();services.AddSingleton<ISignupRepository>(Signups);
             services.RemoveAll<IProfileRepository>();
             services.AddSingleton<IProfileRepository>(Profiles);
             services.RemoveAll<IAuthRepository>();
@@ -178,4 +181,18 @@ public sealed class FakeExternalLogins(MemoryUsers users) : IExternalLoginReposi
             links[identity.Subject] = user; return Task.CompletedTask;
         }
     }
+}
+
+public sealed class MemorySignup(MemoryUsers users,MemoryProfiles profiles):ISignupRepository
+{
+ public bool Fail;
+ public async Task<User> CreateAsync(SignupAccount input,CancellationToken ct)
+ {
+  if(Fail)throw new InvalidOperationException("Private database failure: do not expose.");
+  if(await FindByEmailAsync(input.Email,ct) is not null)throw new SignupException(409,"An account already exists. Sign in to continue.");
+  var user=new User{Id=Guid.NewGuid(),UserName="user_"+Guid.NewGuid().ToString("N"),Email=input.Email,PasswordHash=input.PasswordHash,IsActive=true};users.GoogleUsers.Add(user);
+  await profiles.UpdateAsync(user.Id,new(input.FirstName,input.LastName,input.Phone),DateTime.UtcNow,ct);return user;
+ }
+ public Task<User?> FindByEmailAsync(string email,CancellationToken ct)
+ {var matches=users.GoogleUsers.Append(users.User).Where(u=>string.Equals(u.Email,email.Trim(),StringComparison.OrdinalIgnoreCase)).Take(2).ToArray();return Task.FromResult(matches.Length==1?matches[0]:null);}
 }

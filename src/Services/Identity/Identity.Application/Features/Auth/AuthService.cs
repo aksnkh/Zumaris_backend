@@ -11,7 +11,8 @@ public sealed class AuthService(
     ISessionRepository sessions,
     IPasswordHasher passwords,
     ITokenService tokens,
-    IUserSessionIssuer issuer) : IAuthService
+    IUserSessionIssuer issuer,
+    Identity.Application.Features.Signup.ISignupRepository signup) : IAuthService
 {
     private static UnauthorizedAccessException InvalidToken() => new("The session is invalid or expired. Please sign in again.");
 
@@ -21,6 +22,7 @@ public sealed class AuthService(
         if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
             throw new UnauthorizedAccessException("Invalid username or password.");
         var user = await users.GetUserByUsernameAsync(request.UserName.Trim(), cancellationToken);
+        if(user is null && request.UserName.Contains('@'))user=await signup.FindByEmailAsync(request.UserName,cancellationToken);
         if (user is null || !user.IsActive || string.IsNullOrWhiteSpace(user.PasswordHash) || !passwords.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid username or password.");
 

@@ -14,3 +14,10 @@ TestResults/
 # Provider local tooling and IIS publish settings
 /src/Services/Provider/Provider.Api/.config/dotnet-tools.json
 /src/Services/Provider/Provider.Api/Properties/PublishProfiles/IISProduction.pubxml
+
+# Billing build/publish artifacts accidentally written into the source directory
+/src/Services/Billing/Billing.Api/*.dll
+/src/Services/Billing/Billing.Api/*.exe
+/src/Services/Billing/Billing.Api/*.pdb
+/src/Services/Billing/Billing.Api/*.deps.json
+/src/Services/Billing/Billing.Api/*.runtimeconfig.json

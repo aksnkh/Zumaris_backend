@@ -1,3 +1,4 @@
+using Identity.Application.Features.Signup;
 using Identity.Application.Features.Profile;
 using Identity.Infrastructure.Storage;
 using Zumaris.BuildingBlocks.Common.Validation;
@@ -60,6 +61,9 @@ builder.Services.AddScoped<IPlatformAdminRepository, PlatformAdminRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISignupRepository,SignupRepository>();
+builder.Services.AddScoped<SignupService>();
+builder.Services.AddScoped<SignupExceptionFilter>();
 builder.Services.AddScoped<IUserSessionIssuer, UserSessionIssuer>();
 builder.Services.AddScoped<IGoogleIdentityValidator, GoogleIdentityValidator>();
 builder.Services.AddScoped<IExternalLoginRepository, ExternalLoginAdoNetRepository>();

@@ -12,11 +12,21 @@ builder.Services.AddSwaggerGen();
 
 // ۳. تنظیم CORS
 // Cross-origin browser access must be explicitly configured; same-origin Swagger needs no CORS.
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+builder.Services.AddCors(options =>
 {
     var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-    if (origins.Length > 0) policy.WithOrigins(origins).AllowAnyMethod().AllowAnyHeader().AllowCredentials();
-}));
+    options.AddDefaultPolicy(policy =>
+    {
+        if (origins.Length > 0) policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    });
+    // YARP applies this policy only to Identity and Provider routes.
+    options.AddPolicy("IdentityProviderFrontends", policy =>
+    {
+        var techOrigins = builder.Configuration.GetSection("Cors:TechFrontendOrigins").Get<string[]>() ?? [];
+        var allowed = origins.Concat(techOrigins).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (allowed.Length > 0) policy.WithOrigins(allowed).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    });
+});
 
 var app = builder.Build();
 

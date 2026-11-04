@@ -162,3 +162,10 @@ Identity و Provider را مجدداً Publish کنید؛ مسیرهای Gateway
 ## نتیجهٔ بررسی این تغییر
 
 Build و Publish در Release/IISProduction برای Identity و Provider موفق بود. تست‌های سراسری ۲۷۲ مورد موفق داشتند؛ ۱۴ تست اختیاریِ فاقد اتصال مخصوص خودشان skip شدند. تست‌های MySQL جدیدِ signup در Identity و Provider اجرا و موفق شدند، از جمله درخواست هم‌زمان، تکرار، rollback و lookup ایمیل مبهم. هیچ SQL یا استقراری روی سرور کاربر انجام نشد.
+
+
+## دسترسی وب تکنسین (CORS)
+
+https://tech.zumaris.com به Cors:AllowedOrigins در Identity و Provider اضافه شده است؛ https://app.zumaris.com حفظ می‌شود. policy موجود هر دو سرویس، credentials، روش‌های HTTP و هدرهای Content-Type/Authorization/X-Zumaris-CSRF را مجاز می‌کند. Gateway برای مسیرهای /identity و /provider از policy اختصاصی IdentityProviderFrontends استفاده می‌کند تا preflight همین origin را بپذیرد؛ سایر مسیرهای Gateway با این تغییر به tech باز نشده‌اند.
+
+Identity.Api، Provider.Api و YarpGateway را مجدداً منتشر کنید؛ تغییر دیتابیس لازم نیست. اگر Environment Variables یا appsettings.Local.json سرور Cors:AllowedOrigins را override کرده‌اند، فهرست مؤثر هر دو origin را داشته باشد. در Gateway نیز Cors:TechFrontendOrigins باید شامل origin تکنسین باشد. فرانت برای کوکی refresh از credentials: include استفاده کند.

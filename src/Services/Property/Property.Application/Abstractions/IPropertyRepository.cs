@@ -9,8 +9,8 @@ public interface IPropertyRepository
     Task<(IReadOnlyList<PropertyAccess> Items, long Total)> ListAsync(Guid userId, int pageNumber, int pageSize, CancellationToken ct);
     Task<PropertyAccess?> GetAsync(Guid userId, Guid propertyId, CancellationToken ct);
     Task<PropertyAccess?> GetCurrentAsync(Guid userId, CancellationToken ct);
-    Task<PropertyAccess> UpdateAsync(Guid userId, Guid propertyId, CreateProperty input, int version, DateTime now, CancellationToken ct);
-    Task ArchiveAsync(Guid userId, Guid propertyId, int version, DateTime now, CancellationToken ct);
+    Task<PropertyAccess> UpdateAsync(Guid userId, Guid propertyId, CreateProperty input, DateTime now, CancellationToken ct);
+    Task ArchiveAsync(Guid userId, Guid propertyId, DateTime now, CancellationToken ct);
     Task<PropertyAccess> SetCurrentAsync(Guid userId, Guid propertyId, CancellationToken ct);
 }
 public interface IIdentitySessionValidator

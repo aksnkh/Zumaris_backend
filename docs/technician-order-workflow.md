@@ -136,3 +136,8 @@ dotnet publish src/Services/Billing/Billing.Api/Billing.Api.csproj -c Release -p
 Build راه‌حل و Publish با Release/IISProduction برای Identity، Provider، ServiceRequest، Billing و YarpGateway موفق بود. تست‌های سراسری در زمان بررسی ۲۵۳ موفق و ۱۱ تست اختیاریِ فاقد اتصال مخصوص خودشان skip داشتند. تست جدید SQL ادمین جداگانه با MySQL اجرا و موفق شد. تست‌های جدید Swagger برای سه سرویس نیز پس از آن موفق شدند؛ Swagger درخواست‌ها مسیرهای قدیمی را حفظ کرده است.
 
 سناریوی MySQL مربوط به اجرای کار، ارسال هم‌زمان دو complete را هم بررسی می‌کند: فقط یک درخواست موفق، یک گزارش/عکس نتیجه، یک گذار اتمام و پاک‌سازی فایل درخواست بازنده. دیتابیس‌های تست، محلی و موقتی بودند؛ هیچ SQL در دیتابیس کاربر یا استقرار روی IIS کاربر انجام نشد.
+
+
+### رفع NETSDK1152 هنگام Publish سرویس Billing
+
+وجود Billing.Api.deps.json یا Billing.Api.runtimeconfig.json در ریشهٔ سورس Billing.Api باعث می‌شد Web SDK آن‌ها را به‌عنوان محتوای JSON در کنار نسخهٔ تولیدشده در bin جمع‌آوری کند. پروژه اکنون فایل‌های خروجی *.deps.json و *.runtimeconfig.json واقع در ریشهٔ سورس را از Content/None خارج می‌کند؛ فایل‌های واقعی Build همچنان از SDK منتشر می‌شوند. کنترل تشخیص خروجی تکراری غیرفعال نشده است. PublishUrl پروفایل IISProduction نیز با PublishDir هماهنگ است و خروجی در bin/Release/net8.0/iis-publish باقی می‌ماند.

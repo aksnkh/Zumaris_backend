@@ -22,54 +22,55 @@ public sealed class CrudTests
         Assert.Equal("properties/"+x.PropertyId,response.Headers.Location!.ToString());return x;
     }
     private static UpdateProperty Update(PropertyDto x,OwnershipRole role=OwnershipRole.Tenant)=>new(x.AddressLine,x.Postcode,x.City,x.CountryCode,
-        x.Latitude,x.Longitude,x.PropertyType,4,x.Bathrooms,x.YearBuilt,role,x.Version);
+        x.Latitude,x.Longitude,x.PropertyType,4,x.Bathrooms,x.YearBuilt,role);
     [Fact]
     public async Task Create_uses_jwt_identity_normalizes_address_and_returns_unknown_summary_as_null()
     {
         using var f=new PropertyFactory();using var c=f.Client();
         var p=await Create(c,PropertyFactory.Valid() with { AddressLine="  12 Example Road  ",CountryCode="gb",Postcode="nw11 8hb" });
         Assert.Equal("12 Example Road",p.AddressLine);Assert.Equal("GB",p.CountryCode);Assert.Equal("NW11 8HB",p.Postcode);
-        Assert.True(p.IsCurrent);Assert.Equal(1,p.Version);Assert.Equal(f.UserId,f.Repository.Records[p.PropertyId].CreatedByUserId);
+        Assert.True(p.IsCurrent);Assert.Equal(f.UserId,f.Repository.Records[p.PropertyId].CreatedByUserId);
         Assert.Null(p.HealthScore);Assert.Null(p.EquipmentCount);Assert.Null(p.DocumentCount);
         Assert.Equal("Created",Assert.Single(f.Repository.History).Kind);
     }
     [Fact]
-    public async Task Current_selection_is_per_user_idempotent_and_does_not_modify_resource_version()
+    public async Task Current_selection_is_per_user_and_idempotent()
     {
         using var f=new PropertyFactory();using var c=f.Client();var first=await Create(c);var second=await Create(c);
         Assert.False(second.IsCurrent);
         for(var i=0;i<2;i++)Assert.Equal(HttpStatusCode.OK,(await c.PutAsync($"/api/properties/{second.PropertyId}/current",null)).StatusCode);
         var current=await c.GetFromJsonAsync<PropertyDto>("/api/properties/current",Json);
-        Assert.Equal(second.PropertyId,current!.PropertyId);Assert.Equal(1,current.Version);
+        Assert.Equal(second.PropertyId,current!.PropertyId);
         var page=await c.GetFromJsonAsync<PropertyPage>("/api/properties?pageSize=1",Json);
         Assert.Equal(2,page!.TotalCount);Assert.Equal(2,page.TotalPages);Assert.Equal(second.PropertyId,Assert.Single(page.Items).PropertyId);
         Assert.False((await c.GetFromJsonAsync<PropertyDto>($"/api/properties/{first.PropertyId}",Json))!.IsCurrent);
         using var other=f.Client(userId:Guid.NewGuid());Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync("/api/properties/current")).StatusCode);
     }
     [Fact]
-    public async Task Full_update_increments_version_and_audits_declared_role_changes()
+    public async Task Full_updates_are_last_write_wins_and_audit_declared_role_changes()
     {
         using var f=new PropertyFactory();using var c=f.Client();var p=await Create(c);
         var response=await c.PutAsJsonAsync($"/api/properties/{p.PropertyId}",Update(p),Json);
         Assert.Equal(HttpStatusCode.OK,response.StatusCode);
         var updated=(await response.Content.ReadFromJsonAsync<PropertyDto>(Json))!;
-        Assert.Equal(2,updated.Version);Assert.Equal(4,updated.Bedrooms);Assert.Equal(OwnershipRole.Tenant,updated.OwnershipRole);Assert.True(updated.IsCurrent);
+        Assert.Equal(4,updated.Bedrooms);Assert.Equal(OwnershipRole.Tenant,updated.OwnershipRole);Assert.True(updated.IsCurrent);
         Assert.Equal("RoleChanged",f.Repository.History.Last().Kind);
-        Assert.Equal(HttpStatusCode.Conflict,(await c.PutAsJsonAsync($"/api/properties/{p.PropertyId}",Update(p),Json)).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict,(await c.DeleteAsync($"/api/properties/{p.PropertyId}?version=1")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,(await c.PutAsJsonAsync($"/api/properties/{p.PropertyId}",Update(p) with {Bedrooms=5},Json)).StatusCode);
+        var latest=(await c.GetFromJsonAsync<PropertyDto>($"/api/properties/{p.PropertyId}",Json))!;Assert.Equal(5,latest.Bedrooms);
+        using var body=JsonDocument.Parse(await c.GetStringAsync($"/api/properties/{p.PropertyId}"));Assert.False(body.RootElement.TryGetProperty("version",out _));
         Assert.True(f.Repository.Records[p.PropertyId].IsActive);
     }
     [Fact]
     public async Task Archive_preserves_record_and_history_and_selects_another_current_property()
     {
         using var f=new PropertyFactory();using var c=f.Client();var first=await Create(c);var second=await Create(c);
-        Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/properties/{first.PropertyId}?version=1")).StatusCode);
-        Assert.False(f.Repository.Records[first.PropertyId].IsActive);Assert.Equal(2,f.Repository.Records[first.PropertyId].Version);
+        Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/properties/{first.PropertyId}")).StatusCode);
+        Assert.False(f.Repository.Records[first.PropertyId].IsActive);
         Assert.Contains(f.Repository.History,x=>x.Property==first.PropertyId&&x.Kind=="PropertyArchived");
         Assert.Equal(HttpStatusCode.NotFound,(await c.GetAsync($"/api/properties/{first.PropertyId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,(await c.PutAsync($"/api/properties/{first.PropertyId}/current",null)).StatusCode);
         Assert.Equal(second.PropertyId,(await c.GetFromJsonAsync<PropertyDto>("/api/properties/current",Json))!.PropertyId);
-        Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/properties/{second.PropertyId}?version=1")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/properties/{second.PropertyId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,(await c.GetAsync("/api/properties/current")).StatusCode);
         Assert.Empty((await c.GetFromJsonAsync<PropertyPage>("/api/properties",Json))!.Items);
     }
@@ -80,7 +81,7 @@ public sealed class CrudTests
         var otherUser=Guid.NewGuid();using var b=f.Client(userId:otherUser);
         Assert.Equal(HttpStatusCode.NotFound,(await b.GetAsync($"/api/properties/{p.PropertyId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,(await b.PutAsJsonAsync($"/api/properties/{p.PropertyId}",Update(p,OwnershipRole.Owner),Json)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound,(await b.DeleteAsync($"/api/properties/{p.PropertyId}?version=1")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,(await b.DeleteAsync($"/api/properties/{p.PropertyId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,(await b.PutAsync($"/api/properties/{p.PropertyId}/current",null)).StatusCode);
         Assert.Empty((await b.GetFromJsonAsync<PropertyPage>("/api/properties?userId="+f.UserId,Json))!.Items);
         var own=await Create(b);Assert.NotEqual(p.PropertyId,own.PropertyId);
@@ -89,7 +90,7 @@ public sealed class CrudTests
         f.Repository.Members[(p.PropertyId,otherUser)]=OwnershipRole.Owner;
         Assert.Equal(HttpStatusCode.OK,(await b.GetAsync($"/api/properties/{p.PropertyId}")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,(await b.PutAsJsonAsync($"/api/properties/{p.PropertyId}",Update(p,OwnershipRole.Owner),Json)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden,(await b.DeleteAsync($"/api/properties/{p.PropertyId}?version=1")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,(await b.DeleteAsync($"/api/properties/{p.PropertyId}")).StatusCode);
     }
     [Theory]
     [InlineData("Owner")][InlineData("Tenant")][InlineData("Landlord")][InlineData("PropertyManager")]
@@ -140,10 +141,10 @@ public sealed class CrudTests
         using var f=new PropertyFactory();using var c=f.Client();Assert.Equal(HttpStatusCode.BadRequest,(await c.GetAsync("/api/properties?"+query)).StatusCode);
     }
     [Fact]
-    public async Task Delete_requires_positive_version_and_list_supports_large_safe_offsets()
+    public async Task Delete_without_version_succeeds_and_list_supports_large_safe_offsets()
     {
         using var f=new PropertyFactory();using var c=f.Client();var p=await Create(c);
-        Assert.Equal(HttpStatusCode.BadRequest,(await c.DeleteAsync($"/api/properties/{p.PropertyId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,(await c.DeleteAsync($"/api/properties/{p.PropertyId}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK,(await c.GetAsync("/api/properties?pageNumber=2147483647&pageSize=100")).StatusCode);
     }
     [Fact]
@@ -172,6 +173,10 @@ public sealed class CrudTests
         var paths=doc.RootElement.GetProperty("paths");
         Assert.True(paths.GetProperty("/api/properties").TryGetProperty("post",out _));
         var item=paths.GetProperty("/api/properties/{id}");Assert.True(item.TryGetProperty("get",out _));Assert.True(item.TryGetProperty("put",out _));Assert.True(item.TryGetProperty("delete",out _));
+        var schemas=doc.RootElement.GetProperty("components").GetProperty("schemas");
+        Assert.False(schemas.GetProperty("UpdateProperty").GetProperty("properties").TryGetProperty("version",out _));
+        Assert.False(schemas.GetProperty("PropertyDto").GetProperty("properties").TryGetProperty("version",out _));
+        if(item.GetProperty("delete").TryGetProperty("parameters",out var parameters))Assert.DoesNotContain(parameters.EnumerateArray(),p=>p.GetProperty("name").GetString()=="version");
         Assert.True(paths.TryGetProperty("/api/properties/current",out _));Assert.True(paths.TryGetProperty("/api/properties/{id}/current",out _));Assert.True(paths.TryGetProperty("/api/property-options",out _));
     }
 }

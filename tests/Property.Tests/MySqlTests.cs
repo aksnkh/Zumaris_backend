@@ -58,7 +58,7 @@ public sealed class MySqlPropertyFixture : IAsyncLifetime
 public sealed class MySqlTests(MySqlPropertyFixture fixture)
 {
     private static PropertyRecord Record(Guid user)=>new(Guid.NewGuid(),"12 Example Road","NW11 8HB","London","GB",51.556m,-0.192m,
-        PropertyType.Terraced,3,2,1985,user,DateTime.UtcNow,null,true,1);
+        PropertyType.Terraced,3,2,1985,user,DateTime.UtcNow,null,true);
     [MySqlFact]
     public async Task Real_migration_create_update_current_and_archive_preserve_history()
     {
@@ -68,14 +68,16 @@ public sealed class MySqlTests(MySqlPropertyFixture fixture)
         var b=await repo.CreateAsync(Record(user),OwnershipRole.Tenant,default);Assert.False(b.IsCurrent);
         await repo.SetCurrentAsync(user,b.Property.PropertyId,default);
         var page=await repo.ListAsync(user,1,1,default);Assert.Equal(2,page.Total);Assert.Equal(b.Property.PropertyId,Assert.Single(page.Items).Property.PropertyId);
-        var updated=await repo.UpdateAsync(user,p.PropertyId,PropertyFactory.Valid() with { OwnershipRole=OwnershipRole.PropertyManager },1,DateTime.UtcNow,default);
-        Assert.Equal(2,updated.Property.Version);Assert.Equal(OwnershipRole.PropertyManager,updated.OwnershipRole);
-        await Assert.ThrowsAsync<PropertyConflictException>(()=>repo.UpdateAsync(user,p.PropertyId,PropertyFactory.Valid(),1,DateTime.UtcNow,default));
+        await using(var legacy=new MySqlConnection(fixture.ConnectionString))
+        {await legacy.OpenAsync();await using var cmd=new MySqlCommand("UPDATE properties SET version=999 WHERE id=@id",legacy);cmd.Parameters.AddWithValue("@id",p.PropertyId.ToString());await cmd.ExecuteNonQueryAsync();}
+        var updated=await repo.UpdateAsync(user,p.PropertyId,PropertyFactory.Valid() with { OwnershipRole=OwnershipRole.PropertyManager },DateTime.UtcNow,default);
+        Assert.Equal(OwnershipRole.PropertyManager,updated.OwnershipRole);
+        var latest=await repo.UpdateAsync(user,p.PropertyId,PropertyFactory.Valid() with {Bedrooms=5,OwnershipRole=OwnershipRole.PropertyManager},DateTime.UtcNow,default);Assert.Equal(5,latest.Property.Bedrooms);
         await repo.SetCurrentAsync(user,p.PropertyId,default);
-        await repo.ArchiveAsync(user,p.PropertyId,2,DateTime.UtcNow,default);
+        await repo.ArchiveAsync(user,p.PropertyId,DateTime.UtcNow,default);
         Assert.Null(await repo.GetAsync(user,p.PropertyId,default));
         Assert.Equal(b.Property.PropertyId,(await repo.GetCurrentAsync(user,default))!.Property.PropertyId);
-        Assert.Equal(1,await fixture.Scalar("SELECT COUNT(*) FROM properties WHERE id=@id AND is_active=0 AND version=3",p.PropertyId));
+        Assert.Equal(1,await fixture.Scalar("SELECT COUNT(*) FROM properties WHERE id=@id AND is_active=0 AND version=999",p.PropertyId));
         Assert.Equal(3,await fixture.Scalar("SELECT COUNT(*) FROM property_membership_history WHERE property_id=@id",p.PropertyId));
     }
     [MySqlFact]
@@ -84,14 +86,14 @@ public sealed class MySqlTests(MySqlPropertyFixture fixture)
         var repo=fixture.Repository;var user=Guid.NewGuid();var other=Guid.NewGuid();var a=await repo.CreateAsync(Record(user),OwnershipRole.Owner,default);var id=a.Property.PropertyId;
         Assert.Null(await repo.GetAsync(other,id,default));Assert.Equal(0,(await repo.ListAsync(other,1,20,default)).Total);
         await Assert.ThrowsAsync<PropertyNotFoundException>(()=>repo.SetCurrentAsync(other,id,default));
-        await Assert.ThrowsAsync<PropertyNotFoundException>(()=>repo.UpdateAsync(other,id,PropertyFactory.Valid(),1,DateTime.UtcNow,default));
-        await Assert.ThrowsAsync<PropertyNotFoundException>(()=>repo.ArchiveAsync(other,id,1,DateTime.UtcNow,default));
+        await Assert.ThrowsAsync<PropertyNotFoundException>(()=>repo.UpdateAsync(other,id,PropertyFactory.Valid(),DateTime.UtcNow,default));
+        await Assert.ThrowsAsync<PropertyNotFoundException>(()=>repo.ArchiveAsync(other,id,DateTime.UtcNow,default));
         await using var c=new MySqlConnection(fixture.ConnectionString);await c.OpenAsync();
         await using var cmd=new MySqlCommand("INSERT INTO property_memberships(property_id,user_id,ownership_role,is_active,created_at) VALUES(@id,@user,'Owner',1,UTC_TIMESTAMP(6))",c);
         cmd.Parameters.AddWithValue("@id",id.ToString());cmd.Parameters.AddWithValue("@user",other.ToString());await cmd.ExecuteNonQueryAsync();
         Assert.NotNull(await repo.GetAsync(other,id,default));
-        await Assert.ThrowsAsync<PropertyForbiddenException>(()=>repo.UpdateAsync(other,id,PropertyFactory.Valid(),1,DateTime.UtcNow,default));
-        await Assert.ThrowsAsync<PropertyForbiddenException>(()=>repo.ArchiveAsync(other,id,1,DateTime.UtcNow,default));
+        await Assert.ThrowsAsync<PropertyForbiddenException>(()=>repo.UpdateAsync(other,id,PropertyFactory.Valid(),DateTime.UtcNow,default));
+        await Assert.ThrowsAsync<PropertyForbiddenException>(()=>repo.ArchiveAsync(other,id,DateTime.UtcNow,default));
     }
     [MySqlFact]
     public async Task Real_concurrent_first_properties_select_exactly_one_current()
@@ -102,16 +104,15 @@ public sealed class MySqlTests(MySqlPropertyFixture fixture)
         Assert.Equal(4,page.Total);Assert.Single(page.Items,x=>x.IsCurrent);Assert.NotNull(await repo.GetCurrentAsync(user,default));
     }
     [MySqlFact]
-    public async Task Real_concurrent_updates_have_only_one_winner()
+    public async Task Real_concurrent_updates_both_succeed_and_last_write_wins()
     {
         var repo=fixture.Repository;var user=Guid.NewGuid();var item=await repo.CreateAsync(Record(user),OwnershipRole.Owner,default);var id=item.Property.PropertyId;
-        async Task<bool> Update()
-        {
-            try { await repo.UpdateAsync(user,id,PropertyFactory.Valid() with { OwnershipRole=OwnershipRole.Tenant },1,DateTime.UtcNow,default);return true; }
-            catch(PropertyConflictException){return false;}
-        }
-        var outcomes=await Task.WhenAll(Update(),Update());Assert.Single(outcomes,x=>x);
-        Assert.Equal(2,(await repo.GetAsync(user,id,default))!.Property.Version);
+        var outcomes=await Task.WhenAll(
+            repo.UpdateAsync(user,id,PropertyFactory.Valid() with {Bedrooms=4,OwnershipRole=OwnershipRole.Tenant},DateTime.UtcNow,default),
+            repo.UpdateAsync(user,id,PropertyFactory.Valid() with {Bedrooms=5,OwnershipRole=OwnershipRole.Tenant},DateTime.UtcNow,default));
+        Assert.Equal(2,outcomes.Length);var final=(await repo.GetAsync(user,id,default))!;Assert.Contains(final.Property.Bedrooms,new[]{4,5});
+        var last=await repo.UpdateAsync(user,id,PropertyFactory.Valid() with {Bedrooms=6,OwnershipRole=OwnershipRole.Tenant},DateTime.UtcNow,default);
+        Assert.Equal(6,last.Property.Bedrooms);Assert.Equal(6,(await repo.GetAsync(user,id,default))!.Property.Bedrooms);
     }
     [MySqlFact]
     public async Task Real_failed_constraint_rolls_back_property_membership_and_preference()
@@ -131,7 +132,7 @@ public sealed class MySqlTests(MySqlPropertyFixture fixture)
         var second=await repo.CreateAsync(Record(user),OwnershipRole.Owner,default);var id=first.Property.PropertyId;
         async Task Select()
         { try { await repo.SetCurrentAsync(user,id,default); } catch(PropertyNotFoundException) { } }
-        await Task.WhenAll(Select(),repo.ArchiveAsync(user,id,1,DateTime.UtcNow,default));
+        await Task.WhenAll(Select(),repo.ArchiveAsync(user,id,DateTime.UtcNow,default));
         Assert.Equal(second.Property.PropertyId,(await repo.GetCurrentAsync(user,default))!.Property.PropertyId);
         Assert.Single((await repo.ListAsync(user,1,20,default)).Items,x=>x.IsCurrent);
     }
@@ -149,7 +150,7 @@ public sealed class MySqlTests(MySqlPropertyFixture fixture)
         Assert.Equal(property.PropertyId,Assert.Single(list.Items).PropertyId);
         using var other=factory.Client(userId:Guid.NewGuid());
         Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/properties/{property.PropertyId}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent,(await client.DeleteAsync($"/api/properties/{property.PropertyId}?version=1")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,(await client.DeleteAsync($"/api/properties/{property.PropertyId}")).StatusCode);
         Assert.True(factory.Validator.Calls>=4);
     }
     [MySqlFact]

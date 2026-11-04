@@ -56,9 +56,9 @@ public sealed class PropertiesController(IPropertyService service) : ControllerB
         Ok(await service.UpdateAsync(UserId,id,input,ct));
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> Archive(Guid id,[FromQuery]int version,CancellationToken ct)
+    public async Task<IActionResult> Archive(Guid id,CancellationToken ct)
     {
-        await service.ArchiveAsync(UserId,id,version,ct);return NoContent();
+        await service.ArchiveAsync(UserId,id,ct);return NoContent();
     }
     [HttpPut("{id:guid}/current")]
     [ProducesResponseType(typeof(PropertyDto),StatusCodes.Status200OK)]

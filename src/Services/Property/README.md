@@ -2,7 +2,7 @@
 
 .NET 8 / Clean Architecture / direct parameterized MySQL, without an ORM.
 
-Implemented: authenticated property CRUD, self-declared user-property roles, per-user current property selection and form options. Identity JWT and live session validation are required. Soft archive and optimistic version checks preserve history.
+Implemented: authenticated property CRUD, self-declared user-property roles, per-user current property selection and form options. Identity JWT and live session validation are required. Soft archive and transactional creator-only writes preserve history. Property updates use last-write-wins; no version field is accepted or returned. The legacy database column is unused and requires no migration.
 
 - Domain: property types, declaration roles and immutable records.
 - Application: validation, use cases and repository contracts.

@@ -10,7 +10,7 @@ public interface IPropertyService
     Task<PropertyDto> GetAsync(Guid userId, Guid propertyId, CancellationToken ct);
     Task<PropertyDto> GetCurrentAsync(Guid userId, CancellationToken ct);
     Task<PropertyDto> UpdateAsync(Guid userId, Guid propertyId, UpdateProperty input, CancellationToken ct);
-    Task ArchiveAsync(Guid userId, Guid propertyId, int version, CancellationToken ct);
+    Task ArchiveAsync(Guid userId, Guid propertyId, CancellationToken ct);
     Task<PropertyDto> SetCurrentAsync(Guid userId, Guid propertyId, CancellationToken ct);
 }
 public sealed class PropertyService(IPropertyRepository repository, TimeProvider clock) : IPropertyService
@@ -20,7 +20,7 @@ public sealed class PropertyService(IPropertyRepository repository, TimeProvider
         var now = clock.GetUtcNow().UtcDateTime;
         var x = PropertyRules.Normalize(input, now.Year);
         var record = new PropertyRecord(Guid.NewGuid(),x.AddressLine,x.Postcode,x.City,x.CountryCode,x.Latitude,x.Longitude,
-            x.PropertyType,x.Bedrooms,x.Bathrooms,x.YearBuilt,userId,now,null,true,1);
+            x.PropertyType,x.Bedrooms,x.Bathrooms,x.YearBuilt,userId,now,null,true);
         return ToDto(await repository.CreateAsync(record,x.OwnershipRole,ct));
     }
     public async Task<PropertyPage> ListAsync(Guid userId, int pageNumber, int pageSize, CancellationToken ct)
@@ -36,21 +36,17 @@ public sealed class PropertyService(IPropertyRepository repository, TimeProvider
         ToDto(await repository.GetCurrentAsync(userId,ct) ?? throw new PropertyNotFoundException());
     public async Task<PropertyDto> UpdateAsync(Guid userId, Guid propertyId, UpdateProperty input, CancellationToken ct)
     {
-        ValidateVersion(input.Version); var now=clock.GetUtcNow().UtcDateTime;
-        return ToDto(await repository.UpdateAsync(userId,propertyId,PropertyRules.Normalize(input.AsCreate(),now.Year),input.Version,now,ct));
+        var now=clock.GetUtcNow().UtcDateTime;
+        return ToDto(await repository.UpdateAsync(userId,propertyId,PropertyRules.Normalize(input.AsCreate(),now.Year),now,ct));
     }
-    public Task ArchiveAsync(Guid userId, Guid propertyId, int version, CancellationToken ct)
-    { ValidateVersion(version); return repository.ArchiveAsync(userId,propertyId,version,clock.GetUtcNow().UtcDateTime,ct); }
+    public Task ArchiveAsync(Guid userId, Guid propertyId, CancellationToken ct)
+    { return repository.ArchiveAsync(userId,propertyId,clock.GetUtcNow().UtcDateTime,ct); }
     public async Task<PropertyDto> SetCurrentAsync(Guid userId, Guid propertyId, CancellationToken ct) =>
         ToDto(await repository.SetCurrentAsync(userId,propertyId,ct));
-    private static void ValidateVersion(int version)
-    {
-        if (version < 1) throw new PropertyValidationException(new() { ["version"] = ["Use the latest positive property version."] });
-    }
     public static PropertyDto ToDto(PropertyAccess a)
     {
         var x=a.Property;
         return new(x.PropertyId,x.AddressLine,x.Postcode,x.City,x.CountryCode,x.Latitude,x.Longitude,x.PropertyType,x.Bedrooms,
-            x.Bathrooms,x.YearBuilt,a.OwnershipRole,a.IsCurrent,null,null,null,x.CreatedAtUtc,x.UpdatedAtUtc,x.Version);
+            x.Bathrooms,x.YearBuilt,a.OwnershipRole,a.IsCurrent,null,null,null,x.CreatedAtUtc,x.UpdatedAtUtc);
     }
 }

@@ -70,11 +70,11 @@ public sealed class MemoryProperties : IPropertyRepository
     public List<(Guid Property,Guid User,string Kind,OwnershipRole? From,OwnershipRole? To)> History { get; }=[];
     private PropertyAccess? Find(Guid user,Guid id)=>Records.TryGetValue(id,out var p)&&p.IsActive&&Members.TryGetValue((id,user),out var role)
         ? new(p,role,Current.GetValueOrDefault(user)==id):null;
-    private PropertyAccess Owned(Guid user,Guid id,int version)
+    private PropertyAccess Owned(Guid user,Guid id)
     {
         var item=Find(user,id)??throw new PropertyNotFoundException();
         if(item.Property.CreatedByUserId!=user)throw new PropertyForbiddenException();
-        if(item.Property.Version!=version)throw new PropertyConflictException();return item;
+        return item;
     }
     public Task<PropertyAccess> CreateAsync(PropertyRecord p,OwnershipRole role,CancellationToken ct)
     {
@@ -98,23 +98,23 @@ public sealed class MemoryProperties : IPropertyRepository
             return Task.FromResult(((IReadOnlyList<PropertyAccess>)all.Skip((int)Math.Min(((long)page-1)*size,int.MaxValue)).Take(size).ToArray(),(long)all.Length));
         }
     }
-    public Task<PropertyAccess> UpdateAsync(Guid user,Guid id,CreateProperty p,int version,DateTime now,CancellationToken ct)
+    public Task<PropertyAccess> UpdateAsync(Guid user,Guid id,CreateProperty p,DateTime now,CancellationToken ct)
     {
         lock(gate)
         {
-            var a=Owned(user,id,version);var x=a.Property;
+            var a=Owned(user,id);var x=a.Property;
             Records[id]=x with { AddressLine=p.AddressLine,Postcode=p.Postcode,City=p.City,CountryCode=p.CountryCode,Latitude=p.Latitude,Longitude=p.Longitude,
-                PropertyType=p.PropertyType,Bedrooms=p.Bedrooms,Bathrooms=p.Bathrooms,YearBuilt=p.YearBuilt,UpdatedAtUtc=now,Version=version+1 };
+                PropertyType=p.PropertyType,Bedrooms=p.Bedrooms,Bathrooms=p.Bathrooms,YearBuilt=p.YearBuilt,UpdatedAtUtc=now };
             Members[(id,user)]=p.OwnershipRole;
             if(a.OwnershipRole!=p.OwnershipRole)History.Add((id,user,"RoleChanged",a.OwnershipRole,p.OwnershipRole));
             return Task.FromResult(Find(user,id)!);
         }
     }
-    public Task ArchiveAsync(Guid user,Guid id,int version,DateTime now,CancellationToken ct)
+    public Task ArchiveAsync(Guid user,Guid id,DateTime now,CancellationToken ct)
     {
         lock(gate)
         {
-            var item=Owned(user,id,version);Records[id]=item.Property with { IsActive=false,Version=version+1,UpdatedAtUtc=now };
+            var item=Owned(user,id);Records[id]=item.Property with { IsActive=false,UpdatedAtUtc=now };
             foreach(var m in Members.Keys.Where(m=>m.Property==id))History.Add((id,m.User,"PropertyArchived",Members[m],null));
             foreach(var u in Current.Where(x=>x.Value==id).Select(x=>x.Key).ToArray())Current[u]=null;
             if(item.IsCurrent)Current[user]=Records.Values.Where(p=>p.IsActive&&Members.ContainsKey((p.PropertyId,user))).OrderByDescending(p=>p.CreatedAtUtc).ThenByDescending(p=>p.PropertyId).Select(p=>(Guid?)p.PropertyId).FirstOrDefault();

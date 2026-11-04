@@ -9,6 +9,7 @@ public class CorsTests
  [Theory]
  [InlineData("https://tech.zumaris.com",true)]
  [InlineData("https://app.zumaris.com",true)]
+ [InlineData("https://admin.zumaris.com",true)]
  [InlineData("https://untrusted.example",false)]
  public async Task Signup_preflight_allows_only_configured_frontends_with_credentials(string origin,bool allowed)
  {

@@ -28,3 +28,5 @@ The user-confirmed workflow in docs/order-workflow-confirmed.md governs technici
 Property CRUD uses last-write-wins without a version input, response field or version predicate. Preserve creator/member authorization, transactional locking, soft archive and membership history. The legacy database version column is unused; no schema migration is required.
 
 The final technician signup screen has no primary-trade field. Identity owns names/email/phone/password and email-or-username login; Provider owns authenticated consent/profile completion. New signup responses use Response<T>; existing endpoint response shapes must not be globally migrated. See docs/technician-signup.md. Email password recovery was explicitly deferred after the latest scope clarification; do not implement SMTP/reset without a later instruction.
+
+The approved global CORS origins for Gateway and service APIs are https://app.zumaris.com, https://tech.zumaris.com and https://admin.zumaris.com, with credentials. Use the shared/default policy for every route; do not restrict these origins to particular microservices. CORS does not replace resource or administrator authorization.

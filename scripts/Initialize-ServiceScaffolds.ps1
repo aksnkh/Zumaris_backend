@@ -100,7 +100,7 @@ app.Run();
     $settings = [ordered]@{
         Logging = @{ LogLevel = @{ Default = 'Information'; 'Microsoft.AspNetCore' = 'Warning' } }
         AllowedHosts = '*'
-        Cors = @{ AllowedOrigins = @('https://app.zumaris.com') }
+        Cors = @{ AllowedOrigins = @('https://app.zumaris.com', 'https://tech.zumaris.com', 'https://admin.zumaris.com') }
     }
     Write-NewFile (Join-Path $serviceRoot "$name.Api/appsettings.json") ($settings | ConvertTo-Json -Depth 8)
     $launch = @{ profiles = @{ http = @{

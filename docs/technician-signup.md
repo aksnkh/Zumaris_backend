@@ -164,8 +164,14 @@ Identity و Provider را مجدداً Publish کنید؛ مسیرهای Gateway
 Build و Publish در Release/IISProduction برای Identity و Provider موفق بود. تست‌های سراسری ۲۷۲ مورد موفق داشتند؛ ۱۴ تست اختیاریِ فاقد اتصال مخصوص خودشان skip شدند. تست‌های MySQL جدیدِ signup در Identity و Provider اجرا و موفق شدند، از جمله درخواست هم‌زمان، تکرار، rollback و lookup ایمیل مبهم. هیچ SQL یا استقراری روی سرور کاربر انجام نشد.
 
 
-## دسترسی وب تکنسین (CORS)
+## CORS عمومی هر سه رابط کاربری
 
-https://tech.zumaris.com به Cors:AllowedOrigins در Identity و Provider اضافه شده است؛ https://app.zumaris.com حفظ می‌شود. policy موجود هر دو سرویس، credentials، روش‌های HTTP و هدرهای Content-Type/Authorization/X-Zumaris-CSRF را مجاز می‌کند. Gateway برای مسیرهای /identity و /provider از policy اختصاصی IdentityProviderFrontends استفاده می‌کند تا preflight همین origin را بپذیرد؛ سایر مسیرهای Gateway با این تغییر به tech باز نشده‌اند.
+Cors:AllowedOrigins در Gateway و تمام APIهای میکروسرویس‌ها شامل این originهای HTTPS است:
 
-Identity.Api، Provider.Api و YarpGateway را مجدداً منتشر کنید؛ تغییر دیتابیس لازم نیست. اگر Environment Variables یا appsettings.Local.json سرور Cors:AllowedOrigins را override کرده‌اند، فهرست مؤثر هر دو origin را داشته باشد. در Gateway نیز Cors:TechFrontendOrigins باید شامل origin تکنسین باشد. فرانت برای کوکی refresh از credentials: include استفاده کند.
+- https://app.zumaris.com
+- https://tech.zumaris.com
+- https://admin.zumaris.com
+
+policy عمومی با credentials، تمام روش‌های HTTP و هدرهای مجاز کار می‌کند؛ به مسیر یا سرویس خاص محدود نیست. policy قدیمی IdentityProviderFrontends، تنظیم TechFrontendOrigins و انتخاب policy مخصوص مسیرهای Identity/Provider حذف شده‌اند. سایر originها همچنان مجاز نیستند و AllowAnyOrigin فعال نشده است. CORS مجوز عملیات نمی‌دهد؛ JWT، نشست، مالکیت منابع و کنترل ادمین همچنان اجرا می‌شوند.
+
+برای اعمال روی مسیر عمومی api.zumaris.com، Gateway با تنظیمات جدید منتشر شود. برای همسان‌سازی تنظیمات سرویس‌های پشت آن، APIهای دارای تغییر appsettings.json هم منتشر شوند. SQL لازم نیست. اگر appsettings.Production.json، Environment Variables یا تنظیمات محلی هر سرویس Cors:AllowedOrigins را override کرده‌اند، فهرست مؤثر هر سه origin را داشته باشد. مقدار قدیمی CorsPolicy مسیرها در تنظیمات اختصاصی سرور نیز حذف شود. فرانت برای کوکی refresh از credentials: include استفاده کند.

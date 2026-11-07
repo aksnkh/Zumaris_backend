@@ -17,12 +17,10 @@ public sealed class ProviderQuoteRepository(IConfiguration configuration):IProvi
     {
         var cs=configuration.GetConnectionString("DefaultConnection")??throw new InvalidOperationException("DefaultConnection is required.");
         await using var c=new MySqlConnection(cs);await c.OpenAsync(ct);
-        await using var cmd=new MySqlCommand("""
+        await using var cmd=new MySqlCommand($"""
             SELECT p.* FROM providers p JOIN provider_category_qualifications q ON q.provider_id=p.id
-            WHERE p.is_active=1 AND p.is_verified=1 AND q.is_qualified=1 AND q.category_id=@category
-            AND EXISTS(SELECT 1 FROM provider_onboarding o WHERE o.provider_id=p.id AND o.reviewed_revision=o.revision)
-            AND EXISTS(SELECT 1 FROM provider_documents d WHERE d.provider_id=p.id)
-            AND ((@user IS NOT NULL AND p.user_id=@user) OR (@provider IS NOT NULL AND p.id=@provider))
+            WHERE p.is_active=1 AND q.is_qualified=1 AND q.category_id=@category
+            AND ({ProviderDocumentEligibility.Predicate}) AND ((@user IS NOT NULL AND p.user_id=@user) OR (@provider IS NOT NULL AND p.id=@provider))
             """,c);
         cmd.Parameters.AddWithValue("@user",userId?.ToString());cmd.Parameters.AddWithValue("@provider",providerId?.ToString());cmd.Parameters.AddWithValue("@category",categoryId);
         await using var reader=await cmd.ExecuteReaderAsync(ct);if(!await reader.ReadAsync(ct))return null;

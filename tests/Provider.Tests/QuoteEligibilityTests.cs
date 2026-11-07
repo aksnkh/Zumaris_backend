@@ -85,6 +85,8 @@ public class ProviderMySqlTests
         {cmd.Parameters.AddWithValue("@id",id.ToString());cmd.Parameters.AddWithValue("@user",user.ToString());await cmd.ExecuteNonQueryAsync();}
         var more=(await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/provider/002_onboarding_reviews.sql"))).Replace("zumaris_provider","zumaris_provider_test");
         await using(var cmd=new MySqlCommand(more,c))await cmd.ExecuteNonQueryAsync();
+        var independent=(await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/provider/004_independent_document_reviews.sql"))).Replace("zumaris_provider","zumaris_provider_test");
+        await using(var cmd=new MySqlCommand(independent,c))await cmd.ExecuteNonQueryAsync();
         var repo=new ProviderQuoteRepository(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:DefaultConnection",cs}}).Build());
         try
         {
@@ -92,6 +94,16 @@ public class ProviderMySqlTests
             await using(var cmd=new MySqlCommand("UPDATE providers SET is_verified=1 WHERE id=@id",c)){cmd.Parameters.AddWithValue("@id",id.ToString());await cmd.ExecuteNonQueryAsync();}
             Assert.Null(await repo.GetAsync(user,null,1,default));
             await using(var ready=new MySqlCommand("INSERT INTO provider_onboarding(provider_id,reviewed_revision)VALUES(@id,1);INSERT INTO provider_documents(id,provider_id,kind,file_name,content_type,content,created_at)VALUES(UUID(),@id,'Identity','id.pdf','application/pdf',X'255044462D',UTC_TIMESTAMP(6));",c)){ready.Parameters.AddWithValue("@id",id.ToString());await ready.ExecuteNonQueryAsync();}
+            Assert.Null(await repo.GetAsync(user,null,1,default));
+            var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:DefaultConnection",cs}}).Build();
+            var documents=new ProviderVerificationRepository(config);await documents.SaveProfileAsync(user,new("SW1A 1AA",null),default);var service=new VerificationDocumentService(documents,TimeProvider.System);
+            foreach(var kind in new[]{VerificationDocumentType.IdentityCheck,VerificationDocumentType.Insurance,VerificationDocumentType.Certificate})
+            {
+                var detail=await service.UploadAsync(user,kind,new(kind.ToString(),kind+".pdf","application/pdf",Encoding.ASCII.GetBytes("%PDF-1.7\n"+kind)),default,kind==VerificationDocumentType.IdentityCheck?IdentityDocumentKind.Passport:null);
+                var fileId=detail.Document.CurrentDocument!.DocumentId;
+                await service.SubmitAsync(user,new[]{fileId},default);
+                await service.ReviewAsync(Guid.NewGuid(),id,kind,new(fileId,true,null),default);
+            }
             var profile=await repo.GetAsync(user,null,1,default);Assert.NotNull(profile);Assert.Equal(id,profile.ProviderId);Assert.Null(profile.Rating);
             Assert.Null(await repo.GetAsync(user,null,2,default));
             Assert.NotNull(await repo.GetAsync(null,id,1,default));
@@ -100,6 +112,6 @@ public class ProviderMySqlTests
             Assert.Equal("Test provider",(await repo.SummaryAsync(id,default))!.DisplayName);
         }
         finally
-        {await using var cmd=new MySqlCommand("DELETE FROM provider_documents WHERE provider_id=@id;DELETE FROM provider_onboarding WHERE provider_id=@id;DELETE FROM provider_category_qualifications WHERE provider_id=@id;DELETE FROM providers WHERE id=@id",c);cmd.Parameters.AddWithValue("@id",id.ToString());await cmd.ExecuteNonQueryAsync();}
+        {await using var cmd=new MySqlCommand("DELETE FROM provider_document_review_history WHERE provider_id=@id;DELETE FROM provider_verification_profile WHERE provider_id=@id;DELETE FROM provider_verification_slots WHERE provider_id=@id;DELETE FROM provider_document_reviews WHERE provider_id=@id;DELETE FROM provider_documents WHERE provider_id=@id;DELETE FROM provider_onboarding WHERE provider_id=@id;DELETE FROM provider_category_qualifications WHERE provider_id=@id;DELETE FROM providers WHERE id=@id",c);cmd.Parameters.AddWithValue("@id",id.ToString());await cmd.ExecuteNonQueryAsync();}
     }
 }

@@ -34,17 +34,19 @@ public sealed class ProviderAccountRepository(IConfiguration configuration) : IP
     {
         await using var c=await Open(ct);
         await using var tx=await c.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct);
-        await using var cmd=Cmd(c,tx,"""
-          SELECT p.*,COALESCE(o.revision,1) AS revision,o.review_reason,o.reviewed_revision
+        await using var cmd=Cmd(c,tx,$"""
+          SELECT p.*,COALESCE(o.revision,1) AS revision,o.review_reason,
+          ({ProviderDocumentEligibility.Predicate}) AS documents_verified,
+          EXISTS(SELECT 1 FROM provider_verification_slots vs JOIN provider_document_reviews vr ON vr.document_id=vs.current_document_id WHERE vs.provider_id=p.id AND vr.status='InReview') AS documents_pending,
+          EXISTS(SELECT 1 FROM provider_verification_slots vs JOIN provider_document_reviews vr ON vr.document_id=vs.current_document_id WHERE vs.provider_id=p.id AND (vr.status='ActionRequired' OR vs.resubmission_reason IS NOT NULL)) AS documents_action_required
           FROM providers p LEFT JOIN provider_onboarding o ON o.provider_id=p.id WHERE p.id=@id
           """,("@id",id.ToString()));
-        Guid user;string name;bool active,verified;int revision;string? reason;int? reviewed;
+        Guid user;string name;bool active,verified,pending,actionRequired;int revision;string? reason;
         await using(var r=await cmd.ExecuteReaderAsync(ct))
         {
             if(!await r.ReadAsync(ct))return null;
             user=r.GetGuid(r.GetOrdinal("user_id"));name=r.GetString("display_name");active=r.GetBoolean("is_active");
-            verified=r.GetBoolean("is_verified");revision=r.GetInt32("revision");reason=r.IsDBNull(r.GetOrdinal("review_reason"))?null:r.GetString("review_reason");
-            reviewed=r.IsDBNull(r.GetOrdinal("reviewed_revision"))?null:r.GetInt32("reviewed_revision");
+            verified=r.GetBoolean("documents_verified");pending=r.GetBoolean("documents_pending");actionRequired=r.GetBoolean("documents_action_required");revision=r.GetInt32("revision");reason=r.IsDBNull(r.GetOrdinal("review_reason"))?null:r.GetString("review_reason");
         }
         var categories=new List<int>();
         await using(var q=Cmd(c,tx,"SELECT category_id FROM provider_category_qualifications WHERE provider_id=@id AND is_qualified=1 ORDER BY category_id",("@id",id.ToString())))
@@ -53,7 +55,7 @@ public sealed class ProviderAccountRepository(IConfiguration configuration) : IP
         await using(var q=Cmd(c,tx,"SELECT id,kind,file_name,content_type,created_at FROM provider_documents WHERE provider_id=@id ORDER BY created_at,id",("@id",id.ToString())))
         await using(var r=await q.ExecuteReaderAsync(ct))while(await r.ReadAsync(ct))documents.Add(new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.GetString(3),DateTime.SpecifyKind(r.GetDateTime(4),DateTimeKind.Utc)));
         await tx.CommitAsync(ct);
-        var status=verified&&reviewed==revision&&documents.Count>0?"Approved":documents.Count==0?"Draft":reviewed==revision?"Rejected":"PendingReview";
+        var status=verified?"Approved":pending?"PendingReview":actionRequired?"Rejected":"Draft";
         return new(id,user,name,active,verified&&status=="Approved",status,revision,reason,categories,documents);
     }
     public async Task<ProviderAccount> SaveAsync(Guid user,SaveProviderRequest input,CancellationToken ct)
@@ -80,7 +82,18 @@ public sealed class ProviderAccountRepository(IConfiguration configuration) : IP
         }
         await using(var cmd=Cmd(c,tx,"INSERT IGNORE INTO provider_onboarding(provider_id)VALUES(@id)",("@id",id.ToString())))await cmd.ExecuteNonQueryAsync(ct);
         if(previous is not null&&previous!=input.DisplayName.Trim())
-        {await using var cmd=Cmd(c,tx,"UPDATE provider_onboarding SET revision=revision+1,review_reason=NULL WHERE provider_id=@id",("@id",id.ToString()));await cmd.ExecuteNonQueryAsync(ct);}
+        {
+            await using(var cmd=Cmd(c,tx,"UPDATE provider_onboarding SET revision=revision+1,review_reason=NULL WHERE provider_id=@id",("@id",id.ToString())))await cmd.ExecuteNonQueryAsync(ct);
+            // Preserve the existing identity-change safeguard; Insurance and Certificate stay valid.
+            const string reasonText="Identity details changed. Upload and submit an updated identity document.";
+            await using(var audit=Cmd(c,tx,"""
+                INSERT INTO provider_document_review_history(id,provider_id,document_id,event_type,actor_user_id,occurred_at,feedback)
+                SELECT UUID(),provider_id,current_document_id,'IdentityDetailsChanged',@user,UTC_TIMESTAMP(6),@reason
+                FROM provider_verification_slots WHERE provider_id=@id AND document_type='IdentityCheck'
+                """,("@id",id.ToString()),("@user",user.ToString()),("@reason",reasonText)))await audit.ExecuteNonQueryAsync(ct);
+            await using(var unsubmit=Cmd(c,tx,"UPDATE provider_document_reviews r JOIN provider_verification_slots s ON s.current_document_id=r.document_id AND s.provider_id=r.provider_id SET r.status='Draft',r.submitted_at=NULL WHERE s.provider_id=@id AND s.document_type='IdentityCheck' AND r.status='InReview'",("@id",id.ToString())))await unsubmit.ExecuteNonQueryAsync(ct);
+            await using(var invalidate=Cmd(c,tx,"UPDATE provider_verification_slots SET verified_document_id=NULL,resubmission_reason=@reason WHERE provider_id=@id AND document_type='IdentityCheck'",("@id",id.ToString()),("@reason",reasonText)))await invalidate.ExecuteNonQueryAsync(ct);
+        }
         await using(var cmd=Cmd(c,tx,"UPDATE provider_category_qualifications SET is_qualified=0 WHERE provider_id=@id",("@id",id.ToString())))await cmd.ExecuteNonQueryAsync(ct);
         foreach(var category in input.CategoryIds.Distinct())
         {
@@ -96,7 +109,7 @@ public sealed class ProviderAccountRepository(IConfiguration configuration) : IP
         var doc=new ProviderDocument(Guid.NewGuid(),input.Kind,input.FileName,input.ContentType,DateTime.UtcNow);
         await using(var cmd=Cmd(c,tx,"INSERT INTO provider_documents(id,provider_id,kind,file_name,content_type,content,created_at)VALUES(@id,@provider,@kind,@name,@type,@content,@now)",
             ("@id",doc.Id.ToString()),("@provider",provider.ToString()),("@kind",doc.Kind),("@name",doc.FileName),("@type",doc.ContentType),("@content",input.Content),("@now",doc.CreatedAtUtc)))await cmd.ExecuteNonQueryAsync(ct);
-        await using(var cmd=Cmd(c,tx,"UPDATE providers SET is_verified=0 WHERE id=@id",("@id",provider.ToString())))await cmd.ExecuteNonQueryAsync(ct);
+        await using(var cmd=Cmd(c,tx,"UPDATE providers p SET is_verified=("+ProviderDocumentEligibility.Predicate+") WHERE p.id=@id",("@id",provider.ToString())))await cmd.ExecuteNonQueryAsync(ct);
         await using(var cmd=Cmd(c,tx,"INSERT INTO provider_onboarding(provider_id,revision)VALUES(@id,2) ON DUPLICATE KEY UPDATE revision=revision+1,review_reason=NULL",("@id",provider.ToString())))await cmd.ExecuteNonQueryAsync(ct);
         await tx.CommitAsync(ct);return doc;
     }
@@ -118,20 +131,8 @@ public sealed class ProviderAccountRepository(IConfiguration configuration) : IP
         var list=new List<ProviderAccount>();foreach(var id in ids){var item=await ByIdAsync(id,ct);if(item is not null)list.Add(item);}
         return new(list,page,size,total);
     }
-    public async Task<ProviderAccount> ReviewAsync(Guid admin,Guid id,ReviewProviderRequest input,CancellationToken ct)
-    {
-        await using var c=await Open(ct);await using var tx=await c.BeginTransactionAsync(ct);
-        await using(var p=Cmd(c,tx,"SELECT id FROM providers WHERE id=@id FOR UPDATE",("@id",id.ToString())))if(await p.ExecuteScalarAsync(ct) is null)throw Missing();
-        int revision;
-        await using(var cmd=Cmd(c,tx,"SELECT revision FROM provider_onboarding WHERE provider_id=@id FOR UPDATE",("@id",id.ToString())))revision=Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
-        if(revision!=input.Revision)throw Conflict("The profile or documents changed. Reload before reviewing.");
-        await using(var cmd=Cmd(c,tx,"SELECT COUNT(*) FROM provider_documents WHERE provider_id=@id",("@id",id.ToString())))
-            if(Convert.ToInt32(await cmd.ExecuteScalarAsync(ct))==0)throw Conflict("Documents must be uploaded before review.");
-        await using(var cmd=Cmd(c,tx,"UPDATE providers SET is_verified=@approved WHERE id=@id",("@id",id.ToString()),("@approved",input.Approved)))await cmd.ExecuteNonQueryAsync(ct);
-        await using(var cmd=Cmd(c,tx,"UPDATE provider_onboarding SET reviewed_revision=revision,reviewed_by=@admin,reviewed_at=@now,review_reason=@reason WHERE provider_id=@id",("@id",id.ToString()),("@admin",admin.ToString()),("@now",DateTime.UtcNow),("@reason",input.Reason?.Trim())))await cmd.ExecuteNonQueryAsync(ct);
-        await using(var audit=Cmd(c,tx,"INSERT INTO provider_verification_history(id,provider_id,revision,administrator_id,approved,reason,occurred_at)VALUES(@event,@id,@revision,@admin,@approved,@reason,@now)",("@event",Guid.NewGuid().ToString()),("@id",id.ToString()),("@revision",revision),("@admin",admin.ToString()),("@approved",input.Approved),("@reason",input.Reason?.Trim()),("@now",DateTime.UtcNow)))await audit.ExecuteNonQueryAsync(ct);
-        await tx.CommitAsync(ct);return (await ByIdAsync(id,ct))!;
-    }
+    public Task<ProviderAccount> ReviewAsync(Guid admin,Guid id,ReviewProviderRequest input,CancellationToken ct) =>
+        Task.FromException<ProviderAccount>(new ProviderWorkflowException(409,"Review Identity Check, Insurance and Certificate independently using the verification document review endpoints."));
     public async Task<CustomerReview> AddReviewAsync(Guid customer,CompletedWork work,CustomerReviewRequest input,CancellationToken ct)
     {
         if(work.CustomerId!=customer||work.Status!="Completed")throw new ProviderWorkflowException(403,"Only the customer of a completed job may review it.");

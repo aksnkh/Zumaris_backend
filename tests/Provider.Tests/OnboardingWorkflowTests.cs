@@ -31,7 +31,7 @@ public class OnboardingWorkflowTests
   var cs=Environment.GetEnvironmentVariable("ZUMARIS_PROVIDER_MYSQL_TEST_CONNECTION")!;var parsed=new MySqlConnectionStringBuilder(cs);
   Assert.Contains(parsed.Server,new[]{"127.0.0.1","localhost","::1"});Assert.Equal("zumaris_provider_test",parsed.Database);
   await using var db=new MySqlConnection(cs);await db.OpenAsync();var root=new DirectoryInfo(AppContext.BaseDirectory);while(root is not null&&!File.Exists(Path.Combine(root.FullName,"Zumaris.sln")))root=root.Parent;
-  foreach(var file in new[]{"001_provider_quote_profiles.sql","002_onboarding_reviews.sql"})
+  foreach(var file in new[]{"001_provider_quote_profiles.sql","002_onboarding_reviews.sql","004_independent_document_reviews.sql"})
   {await using var cmd=new MySqlCommand((await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/provider",file))).Replace("zumaris_provider","zumaris_provider_test"),db);await cmd.ExecuteNonQueryAsync();}
   using var f=new Factory(cs);using var tech=f.Client(f.User);using var admin=f.Client(f.Admin);using var stranger=f.Client(Guid.NewGuid());
   Guid id=Guid.Empty;
@@ -46,11 +46,20 @@ public class OnboardingWorkflowTests
    Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync($"/api/admin/providers/{id}/verification",new{revision=account.Revision,approved=true})).StatusCode);
    using var upload=new MultipartFormDataContent();upload.Add(new StringContent("Identity"),"kind");upload.Add(new ByteArrayContent(Encoding.ASCII.GetBytes("%PDF-1.7\nTest document")),"file","identity.pdf");
    var uploaded=await tech.PostAsync("/api/providers/me/documents",upload);Assert.Equal(HttpStatusCode.OK,uploaded.StatusCode);var doc=(await uploaded.Content.ReadFromJsonAsync<ProviderDocument>())!;
-   account=(await tech.GetFromJsonAsync<ProviderAccount>("/api/providers/me"))!;Assert.Equal("PendingReview",account.OnboardingStatus);
+   account=(await tech.GetFromJsonAsync<ProviderAccount>("/api/providers/me"))!;Assert.Equal("Draft",account.OnboardingStatus);
    Assert.Equal(HttpStatusCode.NotFound,(await stranger.GetAsync($"/api/providers/me/documents/{doc.Id}")).StatusCode);
    Assert.Equal(HttpStatusCode.OK,(await admin.GetAsync($"/api/admin/providers/{id}/documents/{doc.Id}")).StatusCode);
    Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync($"/api/admin/providers/{id}/verification",new{revision=account.Revision-1,approved=true})).StatusCode);
-   Assert.Equal(HttpStatusCode.OK,(await admin.PostAsJsonAsync($"/api/admin/providers/{id}/verification",new{revision=account.Revision,approved=true})).StatusCode);
+   Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync($"/api/admin/providers/{id}/verification",new{revision=account.Revision,approved=true})).StatusCode);
+   Assert.Equal(HttpStatusCode.OK,(await tech.PutAsJsonAsync("/api/providers/me/verification-documents/profile",new{postcode="SW1A 1AA"})).StatusCode);
+   foreach(var kind in new[]{"IdentityCheck","Insurance","Certificate"})
+   {
+    using var file=new MultipartFormDataContent();if(kind=="IdentityCheck")file.Add(new StringContent("Passport"),"identityKind");file.Add(new ByteArrayContent(Encoding.ASCII.GetBytes("%PDF-1.7\n"+kind)),"file",kind+".pdf");
+    var uploadedTyped=await tech.PostAsync($"/api/providers/me/verification-documents/{kind}/files",file);Assert.Equal(HttpStatusCode.OK,uploadedTyped.StatusCode);
+    using var typedJson=System.Text.Json.JsonDocument.Parse(await uploadedTyped.Content.ReadAsStringAsync());var fileId=typedJson.RootElement.GetProperty("payload").GetProperty("document").GetProperty("currentDocument").GetProperty("documentId").GetGuid();
+    Assert.Equal(HttpStatusCode.OK,(await tech.PostAsJsonAsync($"/api/providers/me/verification-documents/{kind}/submit",new{documentId=fileId})).StatusCode);
+    Assert.Equal(HttpStatusCode.OK,(await admin.PostAsJsonAsync($"/api/admin/providers/{id}/verification-documents/{kind}/review",new{documentId=fileId,approved=true})).StatusCode);
+   }
    var eligible=await tech.GetFromJsonAsync<ProviderEligibility>("/api/providers/me/eligibility");Assert.Contains(1,eligible!.CategoryIds);
    Assert.Equal(HttpStatusCode.OK,(await tech.PutAsJsonAsync("/api/providers/me",new{displayName="Verified technician",categoryIds=new[]{1,2}})).StatusCode);
    eligible=await tech.GetFromJsonAsync<ProviderEligibility>("/api/providers/me/eligibility");Assert.Contains(2,eligible!.CategoryIds);
@@ -67,7 +76,7 @@ public class OnboardingWorkflowTests
   }
   finally
   {
-   if(id!=Guid.Empty){await using var cmd=new MySqlCommand("DELETE FROM provider_reviews WHERE provider_id=@id;DELETE FROM provider_verification_history WHERE provider_id=@id;DELETE FROM provider_documents WHERE provider_id=@id;DELETE FROM provider_onboarding WHERE provider_id=@id;DELETE FROM provider_category_qualifications WHERE provider_id=@id;DELETE FROM providers WHERE id=@id;",db);cmd.Parameters.AddWithValue("@id",id.ToString());await cmd.ExecuteNonQueryAsync();}
+   if(id!=Guid.Empty){await using var cmd=new MySqlCommand("DELETE FROM provider_document_review_history WHERE provider_id=@id;DELETE FROM provider_verification_profile WHERE provider_id=@id;DELETE FROM provider_verification_slots WHERE provider_id=@id;DELETE FROM provider_document_reviews WHERE provider_id=@id;DELETE FROM provider_reviews WHERE provider_id=@id;DELETE FROM provider_verification_history WHERE provider_id=@id;DELETE FROM provider_documents WHERE provider_id=@id;DELETE FROM provider_onboarding WHERE provider_id=@id;DELETE FROM provider_category_qualifications WHERE provider_id=@id;DELETE FROM providers WHERE id=@id;",db);cmd.Parameters.AddWithValue("@id",id.ToString());await cmd.ExecuteNonQueryAsync();}
   }
  }
  private class Factory(string cs):WebApplicationFactory<Program>

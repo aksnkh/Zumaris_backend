@@ -11,7 +11,7 @@ public class MySqlProviderSignupTests
  {
   var cs=Environment.GetEnvironmentVariable("ZUMARIS_PROVIDER_MYSQL_TEST_CONNECTION")!;var parsed=new MySqlConnectionStringBuilder(cs);Assert.Contains(parsed.Server,new[]{"127.0.0.1","localhost","::1"});Assert.Equal("zumaris_provider_test",parsed.Database);
   await using var c=new MySqlConnection(cs);await c.OpenAsync();var root=new DirectoryInfo(AppContext.BaseDirectory);while(root is not null&&!File.Exists(Path.Combine(root.FullName,"Zumaris.sln")))root=root.Parent;
-  foreach(var file in new[]{"001_provider_quote_profiles.sql","002_onboarding_reviews.sql","003_signup.sql"})
+  foreach(var file in new[]{"001_provider_quote_profiles.sql","002_onboarding_reviews.sql","003_signup.sql","004_independent_document_reviews.sql"})
   for(int i=0;i<2;i++){await using var cmd=new MySqlCommand((await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/provider",file))).Replace("zumaris_provider","zumaris_provider_test"),c);await cmd.ExecuteNonQueryAsync();}
   var cfg=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:DefaultConnection",cs}}).Build();var accounts=new ProviderAccountRepository(cfg);var repo=new ProviderSignupRepository(cfg,accounts);var user=Guid.NewGuid();Guid id=Guid.Empty;
   try

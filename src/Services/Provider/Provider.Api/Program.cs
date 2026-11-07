@@ -22,6 +22,10 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IProviderQuoteRepository,ProviderQuoteRepository>();
 builder.Services.AddHealthChecks();
 builder.Services.AddScoped<IProviderAccountRepository,ProviderAccountRepository>();
+builder.Services.AddScoped<IProviderVerificationRepository,ProviderVerificationRepository>();
+builder.Services.AddScoped<VerificationDocumentService>();
+builder.Services.AddScoped<Zumaris.Provider.Api.Controllers.VerificationExceptionFilter>();
+builder.Services.AddScoped<Zumaris.Provider.Api.Controllers.VerificationAdminFilter>();
 builder.Services.AddScoped<IProviderSignupRepository,ProviderSignupRepository>();
 builder.Services.AddScoped<IProviderSignupClient,ProviderSignupClient>();
 builder.Services.AddScoped<ProviderSignupService>();
@@ -104,10 +108,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         },
         OnChallenge = async context =>
         {
-            if(context.Request.Path.Equals("/api/providers/signup",StringComparison.OrdinalIgnoreCase))
+            if(context.Request.Path.Equals("/api/providers/signup",StringComparison.OrdinalIgnoreCase) || context.Request.Path.Value?.Contains("/verification-documents",StringComparison.OrdinalIgnoreCase)==true)
             {
                 context.HandleResponse();var status=context.HttpContext.Items.ContainsKey("IdentityUnavailable")?503:401;
-                await Results.Json(ApiResponseError.Create(status,status==503?"Identity session validation is temporarily unavailable.":"Sign in to complete provider registration.",context.HttpContext.TraceIdentifier),options:new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web){Converters={new JsonStringEnumConverter<MessageLevel>()}},statusCode:status).ExecuteAsync(context.HttpContext);
+                await Results.Json(ApiResponseError.Create(status,status==503?"Identity session validation is temporarily unavailable.":"Sign in to manage your provider profile and verification documents.",context.HttpContext.TraceIdentifier),options:new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web){Converters={new JsonStringEnumConverter<MessageLevel>()}},statusCode:status).ExecuteAsync(context.HttpContext);
                 return;
             }
             if (context.HttpContext.Items.ContainsKey("IdentityUnavailable"))

@@ -33,6 +33,13 @@ public class PaymentsTests
   using var anonymous=f.Client(false);Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.PostAsJsonAsync("/api/payments",new{requestId=f.Work.RequestId})).StatusCode);
   f.Session.Active=false;Assert.Equal(HttpStatusCode.Unauthorized,(await c.GetAsync("/api/payments/"+Guid.NewGuid())).StatusCode);
  }
+ [Theory][InlineData("Tech")][InlineData("Admin")]
+ public async Task Non_customer_tokens_cannot_create_or_read_customer_payments(string application)
+ {
+  using var f=new Factory();using var c=f.Client(application:application);
+  Assert.Equal(HttpStatusCode.Forbidden,(await c.PostAsync("/api/payments",null)).StatusCode);
+  Assert.Equal(HttpStatusCode.Forbidden,(await c.GetAsync("/api/payments/"+Guid.NewGuid())).StatusCode);
+ }
  private sealed class Factory:WebApplicationFactory<Program>
  {
   const string Key="test-only-billing-signing-key-123456789012345";public readonly Guid User=Guid.NewGuid();public CompletedWork Work{get;}
@@ -43,7 +50,7 @@ public class PaymentsTests
    b.UseEnvironment("Development");b.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"Jwt:Key",Key},{"Jwt:Issuer","tests"},{"Jwt:Audience","clients"}}));
    b.ConfigureServices(s=>{s.RemoveAll<IPaymentRepository>();s.AddSingleton<IPaymentRepository,MemoryPayments>();s.RemoveAll<ICompletedWorkClient>();s.AddSingleton<ICompletedWorkClient>(Upstream);s.RemoveAll<IIdentitySessionValidator>();s.AddSingleton<IIdentitySessionValidator>(Session);});
   }
-  public HttpClient Client(bool auth=true){var c=CreateClient();if(auth){var t=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",User.ToString()),new Claim("sid",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new("Bearer",new JwtSecurityTokenHandler().WriteToken(t));}return c;}
+  public HttpClient Client(bool auth=true,string application="App"){var c=CreateClient();if(auth){var t=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",User.ToString()),new Claim("sid",Guid.NewGuid().ToString()),new Claim("application",application),new Claim("role",application=="Tech"?"Provider":application=="Admin"?"Admin":"Customer"),new Claim("providerId",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new("Bearer",new JwtSecurityTokenHandler().WriteToken(t));}return c;}
  }
  private class Sessions:IIdentitySessionValidator{public bool Active=true;public Task<bool> IsActiveAsync(string token,bool https,CancellationToken ct)=>Task.FromResult(Active);}
  private class Upstream(CompletedWork work):ICompletedWorkClient

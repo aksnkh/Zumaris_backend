@@ -53,13 +53,13 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
         });
     }
 
-    public HttpClient Client(bool authenticated = true, string? signingKey = null, Guid? userId = null)
+    public HttpClient Client(bool authenticated = true, string? signingKey = null, Guid? userId = null, string application = "App")
     {
         var client = CreateClient(new() { AllowAutoRedirect = false });
         if (authenticated)
         {
             var token = new JwtSecurityToken("request-tests", "request-clients",
-                [new Claim("sub", (userId ?? UserId).ToString()), new Claim("sid", Guid.NewGuid().ToString())],
+                [new Claim("application",application),new Claim("role",application=="Tech"?"Provider":application=="Admin"?"Admin":"Customer"),new Claim("providerId",Guid.NewGuid().ToString()),new Claim("sub", (userId ?? UserId).ToString()), new Claim("sid", Guid.NewGuid().ToString())],
                 DateTime.UtcNow.AddSeconds(-1), DateTime.UtcNow.AddMinutes(5),
                 new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey ?? Key)), SecurityAlgorithms.HmacSha256));
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
@@ -240,7 +240,7 @@ public sealed class UnexpectedQuoteRepository:IQuoteRepository
     public Task<QuoteContext?> ContextAsync(Guid id,CancellationToken ct)=>throw Unexpected();
     public Task<QuoteDto>CreateAsync(Guid actor,Guid request,CreateQuoteRequest input,ProviderQuoteIdentity provider,QuoteDisplay display,int expectedRequestVersion,string hash,DateTime now,CancellationToken ct)=>throw Unexpected();
     public Task<QuotePage>ListAsync(Guid actor,bool sent,string? status,Guid? property,int page,int size,DateTime now,CancellationToken ct)=>throw Unexpected();
-    public Task<QuoteDto?>GetAsync(Guid actor,Guid id,DateTime now,CancellationToken ct)=>throw Unexpected();
+    public Task<QuoteDto?>GetAsync(Guid actor,Guid id,DateTime now,CancellationToken ct,bool? sent=null)=>throw Unexpected();
     public Task<QuoteDto>DecideAsync(Guid actor,Guid id,string decision,DateTime now,CancellationToken ct)=>throw Unexpected();
 }
 

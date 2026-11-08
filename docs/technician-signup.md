@@ -1,5 +1,7 @@
 # ثبت‌نام و ورود تکنسین — تصویر نهایی
 
+> Application-scoped authentication update: login now requires `application` (`App`, `Tech`, `Admin`). Refresh/logout use application-specific cookies and a mandatory application selector. See [current login, signup and API isolation contract](application-authentication.md); it supersedes older login/refresh examples below.
+
 مبنای این نسخه، تصویر نهایی کاربر با دو صفحهٔ Welcome / Create account است. فرم ثبت‌نام فقط firstName، lastName، email، phone، password و checkbox شرایط Provider/حریم خصوصی دارد. تخصص اصلی از فرم حذف شده است. ثبت تخصص‌ها و مدارک در مراحل بعدی پروفایل انجام می‌شود. احراز هویت و مدارک همچنان باید توسط ادمین تأیید شوند؛ ساخت حساب به معنی تأیید حرفه‌ای نیست.
 
 بازیابی رمز ایمیلی ابتدا مطرح و سپس طبق آخرین دستور کاربر فعلاً کنار گذاشته شد. در این تغییر endpoint یا ارسال ایمیل برای Forgot پیاده‌سازی نشده؛ فرانت نباید ارسال موفق ایمیل را شبیه‌سازی کند.

@@ -18,7 +18,7 @@ public sealed class SessionsController(ISessionRepository sessions) : Controller
     {
         var currentId = User.FindFirst("sid")!.Value;
         var active = await sessions.ListAsync(UserId, cancellationToken);
-        return Ok(active.Select(s => new { s.Id, s.CreatedAtUtc, s.ExpiresAtUtc,
+        return Ok(active.Where(s => s.Application == User.FindFirst("application")!.Value).Select(s => new { s.Id, s.CreatedAtUtc, s.ExpiresAtUtc,
             IsCurrent = s.Id.ToString() == currentId }));
     }
 
@@ -26,14 +26,18 @@ public sealed class SessionsController(ISessionRepository sessions) : Controller
     public async Task<IActionResult> Revoke(Guid sessionId, CancellationToken cancellationToken)
     {
         // Ownership is enforced by the UPDATE's user_id predicate; unknown IDs disclose nothing.
-        await sessions.RevokeAsync(sessionId, UserId, cancellationToken);
+        var active = await sessions.ListAsync(UserId, cancellationToken);
+        if (active.Any(s => s.Id == sessionId && s.Application == User.FindFirst("application")!.Value))
+            await sessions.RevokeAsync(sessionId, UserId, cancellationToken);
         return NoContent();
     }
 
     [HttpDelete]
     public async Task<IActionResult> RevokeAll(CancellationToken cancellationToken)
     {
-        await sessions.RevokeAllAsync(UserId, cancellationToken);
+        var active = await sessions.ListAsync(UserId, cancellationToken);
+        foreach (var session in active.Where(s => s.Application == User.FindFirst("application")!.Value))
+            await sessions.RevokeAsync(session.Id, UserId, cancellationToken);
         return NoContent();
     }
 }

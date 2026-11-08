@@ -31,7 +31,7 @@ public class TechnicianWorkflowTests
   var cfg=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:DefaultConnection",cs}}).Build();
   using var f=new RequestFactory{QuoteRepositoryOverride=new QuoteAdoNetRepository(cfg),WorkRepositoryOverride=new TechnicianWorkRepository(cfg)};
   var technician=Guid.NewGuid();var stranger=Guid.NewGuid();var provider=Guid.NewGuid();f.QuoteProvider.Users[technician]=new(provider,technician,"Test technician",null,null,null,true,1);f.WorkEligibility.Categories[technician]=new[]{1};f.WorkEligibility.Categories[stranger]=new[]{2};
-  using var owner=f.Client();using var tech=f.Client(userId:technician);using var other=f.Client(userId:stranger);using var anonymous=f.Client(false);
+  using var owner=f.Client();using var tech=f.Client(userId:technician,application:"Tech");using var other=f.Client(userId:stranger,application:"Tech");using var anonymous=f.Client(false);
   var id=Guid.NewGuid();
   await using(var insert=new MySqlCommand("""
    INSERT INTO service_requests(id,user_id,property_id,category_id,area_type_id,description,urgency,time_zone_id,status,created_at,request_hash)
@@ -48,7 +48,7 @@ public class TechnicianWorkflowTests
    using var quoteJson=JsonDocument.Parse(await sent.Content.ReadAsStringAsync());var quoteId=quoteJson.RootElement.GetProperty("payload").GetProperty("id").GetGuid();
    Assert.Equal(HttpStatusCode.OK,(await owner.PostAsync($"/api/quotes/{quoteId}/accept",null)).StatusCode);
    Assert.Equal(HttpStatusCode.Conflict,(await owner.GetAsync($"/api/service-requests/{id}/completed-work")).StatusCode);
-   Assert.Equal(HttpStatusCode.NotFound,(await owner.PostAsync($"/api/technician/jobs/{id}/start",null)).StatusCode);
+   Assert.Equal(HttpStatusCode.Forbidden,(await owner.PostAsync($"/api/technician/jobs/{id}/start",null)).StatusCode);
    Assert.Equal(HttpStatusCode.NotFound,(await other.PostAsync($"/api/technician/jobs/{id}/start",null)).StatusCode);
    Assert.Equal(HttpStatusCode.OK,(await tech.PostAsync($"/api/technician/jobs/{id}/start",null)).StatusCode);
    Assert.Equal(HttpStatusCode.OK,(await tech.PostAsync($"/api/technician/jobs/{id}/start",null)).StatusCode);
@@ -62,7 +62,9 @@ public class TechnicianWorkflowTests
    Assert.Single(Directory.GetFiles(f.UploadRoot,"*",SearchOption.AllDirectories));
    var execution=await owner.GetFromJsonAsync<TechnicianJob>($"/api/service-requests/{id}/execution");Assert.Equal("Completed",execution!.Status);Assert.NotNull(execution.CompletedAtUtc);Assert.NotNull(execution.StartedAtUtc);Assert.NotEmpty(execution.WorkReport!);var photo=Assert.Single(execution.ResultPhotos);
    var photoPath=photo.DownloadPath.Replace("/service-request","");Assert.Equal(HttpStatusCode.OK,(await owner.GetAsync(photoPath)).StatusCode);Assert.Equal(HttpStatusCode.OK,(await tech.GetAsync(photoPath)).StatusCode);Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync(photoPath)).StatusCode);
-   Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/service-requests/{id}/completed-work")).StatusCode);
+   Assert.Equal(HttpStatusCode.Forbidden,(await other.GetAsync($"/api/service-requests/{id}/completed-work")).StatusCode);
+   using(var techInApp=f.Client(userId:technician,application:"App"))Assert.Equal(HttpStatusCode.NotFound,(await techInApp.GetAsync(photoPath)).StatusCode);
+   using(var ownerInTech=f.Client(userId:f.UserId,application:"Tech"))Assert.Equal(HttpStatusCode.NotFound,(await ownerInTech.GetAsync(photoPath)).StatusCode);
    var work=await owner.GetFromJsonAsync<CompletedWorkContext>($"/api/service-requests/{id}/completed-work");Assert.Equal(95,work!.Amount);Assert.Equal(quoteId,work.QuoteId);Assert.Equal(provider,work.ProviderId);
    var history=await new ServiceHistoryAdoNetRepository(cfg).GetByIdAsync(f.UserId,id,default);Assert.Equal("Completed",history!.Status);Assert.Equal("Unpaid",history.PaymentStatus);Assert.Equal(95,history.TotalAmount);Assert.NotNull(history.ServiceDate);Assert.NotNull(history.CompletedAt);
    await using var count=new MySqlCommand("SELECT COUNT(*) FROM service_request_status_history WHERE request_id=@id AND to_status='InProgress'",db);count.Parameters.AddWithValue("@id",id.ToString());Assert.Equal(1,Convert.ToInt32(await count.ExecuteScalarAsync()));

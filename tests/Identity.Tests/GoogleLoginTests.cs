@@ -33,7 +33,7 @@ public sealed class GoogleLoginTests
     {
         var client = f.NewClient(); client.DefaultRequestHeaders.Add("X-Zumaris-Bff-Key", AuthFactory.BffKey); return client;
     }
-    private static Task<HttpResponseMessage> Google(HttpClient client) => client.PostAsJsonAsync("/api/auth/google", new { idToken = "test-google-id-token" });
+    private static Task<HttpResponseMessage> Google(HttpClient client) => client.PostAsJsonAsync("/api/auth/google", new { idToken = "test-google-id-token", application = "App" });
     private static async Task<(Guid UserId, string Access, string Refresh)> Read(HttpResponseMessage response)
     {
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -60,9 +60,9 @@ public sealed class GoogleLoginTests
     public async Task Bff_refresh_rotates_and_logout_revokes_the_same_identity_session()
     {
         using var f = new AuthFactory(); using var c = Client(f); var login = await Read(await Google(c));
-        var next = await Read(await c.PostAsJsonAsync("/api/auth/bff/refresh", new { refreshToken = login.Refresh }));
+        var next = await Read(await c.PostAsJsonAsync("/api/auth/bff/refresh", new { refreshToken = login.Refresh, application = "App" }));
         Assert.Equal(login.UserId, next.UserId); Assert.NotEqual(login.Refresh, next.Refresh);
-        Assert.Equal(HttpStatusCode.NoContent, (await c.PostAsJsonAsync("/api/auth/bff/logout", new { refreshToken = next.Refresh })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await c.PostAsJsonAsync("/api/auth/bff/logout", new { refreshToken = next.Refresh, application = "App" })).StatusCode);
         c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", next.Access);
         Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync("/api/auth/session")).StatusCode);
     }
@@ -76,7 +76,7 @@ public sealed class GoogleLoginTests
         using var f = new AuthFactory(); using var c = Client(f);
         f.Users.User.PasswordHash = hash;
         var response = await c.PostAsJsonAsync("/api/auth/login",
-            new { userName = f.Users.User.UserName, password = "Password-for-tests-1" });
+            new { userName = f.Users.User.UserName, password = "Password-for-tests-1", application = "App" });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Empty(f.Sessions.Items);
     }
@@ -97,9 +97,9 @@ public sealed class GoogleLoginTests
     public async Task Reuse_of_bff_refresh_revokes_session_and_rejects_new_token()
     {
         using var f = new AuthFactory(); using var c = Client(f); var login = await Read(await Google(c));
-        var rotated = await Read(await c.PostAsJsonAsync("/api/auth/bff/refresh", new { refreshToken = login.Refresh }));
-        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/bff/refresh", new { refreshToken = login.Refresh })).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/bff/refresh", new { refreshToken = rotated.Refresh })).StatusCode);
+        var rotated = await Read(await c.PostAsJsonAsync("/api/auth/bff/refresh", new { refreshToken = login.Refresh, application = "App" }));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/bff/refresh", new { refreshToken = login.Refresh, application = "App" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/bff/refresh", new { refreshToken = rotated.Refresh, application = "App" })).StatusCode);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public sealed class GoogleLoginTests
         using var f = new AuthFactory(); using var c = Client(f);
         f.Google.Identity = f.Google.Identity with { Email = f.Users.User.Email };
         Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/google/link", new { idToken = "test-token" })).StatusCode);
-        using var login = await c.PostAsJsonAsync("/api/auth/login", new { userName = "alice", password = "Password-for-tests-1" });
+        using var login = await c.PostAsJsonAsync("/api/auth/login", new { userName = "alice", password = "Password-for-tests-1", application = "App" });
         using var json = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
         c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", json.RootElement.GetProperty("payload").GetProperty("accessToken").GetString());
         var hash = f.Users.User.PasswordHash;
@@ -131,7 +131,7 @@ public sealed class GoogleLoginTests
     {
         using var f = new AuthFactory(); using var c = Client(f); await Read(await Google(c));
         var user = Assert.Single(f.Users.GoogleUsers);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/login", new { userName = user.UserName, password = "anything" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/login", new { userName = user.UserName, password = "anything", application = "App" })).StatusCode);
         user.IsActive = false;
         Assert.Equal(HttpStatusCode.Unauthorized, (await Google(c)).StatusCode);
         Assert.Single(f.Sessions.Items);

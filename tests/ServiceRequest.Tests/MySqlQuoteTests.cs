@@ -42,7 +42,7 @@ public class MySqlQuoteTests
         var tech1=Guid.NewGuid();var tech2=Guid.NewGuid();var stranger=Guid.NewGuid();
         f.QuoteProvider.Users[tech1]=new(Guid.NewGuid(),tech1,"Technician One",null,null,null,true,1);
         f.QuoteProvider.Users[tech2]=new(Guid.NewGuid(),tech2,"Technician Two",null,4.9m,120,true,1);
-        using var one=f.Client(userId:tech1);using var two=f.Client(userId:tech2);using var other=f.Client(userId:stranger);
+        using var one=f.Client(userId:tech1,application:"Tech");using var two=f.Client(userId:tech2,application:"Tech");using var other=f.Client(userId:stranger);
         var requestIds=new List<Guid>();
         async Task<Guid> Request()
         {
@@ -62,13 +62,16 @@ public class MySqlQuoteTests
             Assert.Equal(HttpStatusCode.Forbidden,(await other.GetAsync($"/api/service-requests/{id}/quote-context")).StatusCode);
             var first=await Quote(await one.PostAsJsonAsync(path,input),HttpStatusCode.Created);Assert.Equal(95m,first.TotalAmount);Assert.Null(first.ProviderRating);Assert.Null(first.PropertyAddress);
             Assert.Equal("12 Example Road",(await Quote(await owner.GetAsync($"/api/quotes/{first.Id}"))).PropertyAddress);
+            using var providerInApp=f.Client(userId:tech1,application:"App");using var customerInTech=f.Client(userId:f.UserId,application:"Tech");
+            Assert.Equal(HttpStatusCode.NotFound,(await providerInApp.GetAsync($"/api/quotes/{first.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound,(await customerInTech.GetAsync($"/api/quotes/{first.Id}")).StatusCode);
             Assert.Equal(first.Id,(await Quote(await one.PostAsJsonAsync(path,input),HttpStatusCode.Created)).Id);
             Assert.Equal(first.Id,(await Quote(await one.PostAsJsonAsync(path,new{labourAmount=75.00m,calloutAmount=20.00m,currencyCode="GBP",providerNote="Parts may be required."}),HttpStatusCode.Created)).Id);
             Assert.Equal(HttpStatusCode.Conflict,(await one.PostAsJsonAsync(path,new{labourAmount=80,calloutAmount=20})).StatusCode);
             var second=await Quote(await two.PostAsJsonAsync(path,input),HttpStatusCode.Created);
             Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/quotes/{first.Id}")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound,(await other.PostAsync($"/api/quotes/{first.Id}/accept",null)).StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound,(await one.PostAsync($"/api/quotes/{first.Id}/accept",null)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden,(await one.PostAsync($"/api/quotes/{first.Id}/accept",null)).StatusCode);
             using(var list=JsonDocument.Parse(await owner.GetStringAsync("/api/quotes?status=Pending")))Assert.Equal(2,list.RootElement.GetProperty("payload").GetProperty("totalCount").GetInt64());
             var accepted=await Quote(await owner.PostAsync($"/api/quotes/{first.Id}/accept",null));Assert.Equal("Accepted",accepted.Status);
             Assert.Equal("Accepted",(await Quote(await owner.PostAsync($"/api/quotes/{first.Id}/accept",null))).Status);

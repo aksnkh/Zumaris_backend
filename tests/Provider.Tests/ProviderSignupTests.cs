@@ -58,7 +58,7 @@ public class ProviderSignupTests
   }
   public HttpClient Client(bool authenticated=true,bool wrongSignature=false)
   {
-   var c=CreateClient();if(authenticated){var token=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",User.ToString()),new Claim("sid",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key+(wrongSignature?"wrong":""))),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new("Bearer",new JwtSecurityTokenHandler().WriteToken(token));}return c;
+   var c=CreateClient();if(authenticated){var token=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",User.ToString()),new Claim("sid",Guid.NewGuid().ToString()),new Claim("application","App"),new Claim("role","Customer"),new Claim("providerId",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key+(wrongSignature?"wrong":""))),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new("Bearer",new JwtSecurityTokenHandler().WriteToken(token));}return c;
   }
  }
  private class SessionFake:IIdentitySessionValidator

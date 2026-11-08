@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Identity.Application.Abstractions.Persistence;
 using Identity.Application.Features.Auth;
 using Identity.Application.Features.Auth.Models;
@@ -14,6 +15,7 @@ namespace Identity.Api.Controllers;
 public sealed class AuthController(IAuthService authService, ISessionRepository sessions) : ControllerBase
 {
     public const string CookieName = "zumaris_refresh_token";
+    public static string CookieNameFor(string application) => CookieName + "_" + application.ToLowerInvariant();
 
     [HttpPost("login")]
     public async Task<ActionResult<Response<AuthResponse>>> Login(LoginRequest request, CancellationToken cancellationToken)
@@ -21,37 +23,48 @@ public sealed class AuthController(IAuthService authService, ISessionRepository 
         try
         {
             var (response, refreshToken) = await authService.LoginAsync(request, cancellationToken);
-            SetRefreshCookie(refreshToken, response.RefreshTokenExpiresAtUtc);
-            return Ok(new Response<AuthResponse>(response) { StatusCode = 200, Title = "Success" });
+            SetRefreshCookie(refreshToken, response.RefreshTokenExpiresAtUtc, response.Application);
+            return Ok(new Response<AuthResponse>(response) { StatusCode = 200, Title = "Success", Message = "Signed in successfully.", MessageLevel = MessageLevel.Cif });
         }
         catch (UnauthorizedAccessException ex) { return Denied<AuthResponse>(ex.Message); }
+        catch (ApplicationLoginException ex) { return StatusCode(ex.Status, ApiResponseError.Create(ex.Status,ex.Message,HttpContext.TraceIdentifier)); }
     }
 
     [HttpPost("refresh")]
-    public async Task<ActionResult<Response<AuthResponse>>> Refresh(CancellationToken cancellationToken)
+    public async Task<ActionResult<Response<AuthResponse>>> Refresh([FromQuery, Required, RegularExpression("^(App|Tech|Admin)$")] string application, CancellationToken cancellationToken)
     {
+        if (User.Identity?.IsAuthenticated == true && User.FindFirst("application")?.Value != application)
+            return StatusCode(403,ApiResponseError.Create(403,"This session belongs to another application.",HttpContext.TraceIdentifier));
         try
         {
-            var (response, refreshToken) = await authService.RefreshAsync(Request.Cookies[CookieName] ?? "", cancellationToken);
-            SetRefreshCookie(refreshToken, response.RefreshTokenExpiresAtUtc);
-            return Ok(new Response<AuthResponse>(response) { StatusCode = 200, Title = "Success" });
+            var (response, refreshToken) = await authService.RefreshAsync(Request.Cookies[CookieNameFor(application)] ?? "", cancellationToken, application);
+            SetRefreshCookie(refreshToken, response.RefreshTokenExpiresAtUtc, response.Application);
+            return Ok(new Response<AuthResponse>(response) { StatusCode = 200, Title = "Success", Message = "Signed in successfully.", MessageLevel = MessageLevel.Cif });
+        }
+        catch (ApplicationLoginException ex)
+        {
+            if (ex.Status == 403) DeleteRefreshCookie(application);
+            return StatusCode(ex.Status, ApiResponseError.Create(ex.Status,ex.Message,HttpContext.TraceIdentifier));
         }
         catch (UnauthorizedAccessException ex)
         {
-            DeleteRefreshCookie();
+            DeleteRefreshCookie(application);
             return Denied<AuthResponse>(ex.Message);
         }
     }
 
     // Cookie possession is sufficient for logout, even after the access token has expired.
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    public async Task<IActionResult> Logout([FromQuery, Required, RegularExpression("^(App|Tech|Admin)$")] string application, CancellationToken cancellationToken)
     {
-        await authService.LogoutAsync(Request.Cookies[CookieName] ?? "", cancellationToken);
+        if (User.Identity?.IsAuthenticated == true && User.FindFirst("application")?.Value != application)
+            return StatusCode(403,ApiResponseError.Create(403,"This session belongs to another application.",HttpContext.TraceIdentifier));
+        try { await authService.LogoutAsync(Request.Cookies[CookieNameFor(application)] ?? "", cancellationToken, application); }
+        catch (ApplicationLoginException ex) { return StatusCode(ex.Status,ApiResponseError.Create(ex.Status,ex.Message,HttpContext.TraceIdentifier)); }
         if (Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) &&
             Guid.TryParse(User.FindFirst("sid")?.Value, out var sessionId))
             await sessions.RevokeAsync(sessionId, userId, cancellationToken);
-        DeleteRefreshCookie();
+        DeleteRefreshCookie(application);
         return NoContent();
     }
 
@@ -80,13 +93,13 @@ public sealed class AuthController(IAuthService authService, ISessionRepository 
         IsEssential = true
     };
 
-    private void SetRefreshCookie(string token, DateTime expiresAtUtc)
+    private void SetRefreshCookie(string token, DateTime expiresAtUtc, string application)
     {
         // Remove legacy path-scoped cookies so browsers cannot send two values for the same name.
         DeleteLegacyCookies();
         var options = CookieOptions();
         options.Expires = new DateTimeOffset(DateTime.SpecifyKind(expiresAtUtc, DateTimeKind.Utc));
-        Response.Cookies.Append(CookieName, token, options);
+        Response.Cookies.Append(CookieNameFor(application), token, options);
     }
 
     private void DeleteLegacyCookies()
@@ -99,9 +112,9 @@ public sealed class AuthController(IAuthService authService, ISessionRepository 
         }
     }
 
-    private void DeleteRefreshCookie()
+    private void DeleteRefreshCookie(string application)
     {
         DeleteLegacyCookies();
-        Response.Cookies.Delete(CookieName, CookieOptions());
+        Response.Cookies.Delete(CookieNameFor(application), CookieOptions());
     }
 }

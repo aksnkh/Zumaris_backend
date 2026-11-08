@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using Zumaris.BuildingBlocks.Common.Validation;
 using System.Net;
 using System.Security.Claims;
@@ -12,6 +13,7 @@ using Zumaris.ServiceCatalog.Infrastructure.Persistence;
 using Zumaris.ServiceCatalog.Infrastructure.Integrations;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddApplicationIsolation("App", "Tech", "Admin");
 builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,reloadOnChange:false)
     .AddEnvironmentVariables().AddCommandLine(args);
 var identityUri = new Uri(builder.Configuration["Identity:BaseUrl"] ?? "http://127.0.0.1:5001/");
@@ -80,7 +82,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
                 context.Principal = new ClaimsPrincipal(new ClaimsIdentity(new[] {
                     new Claim("sub", "11111111-1111-4111-8111-111111111111"),
                     new Claim("sid", "22222222-2222-4222-8222-222222222222"),
-                    new Claim("unique_name", "catalog-frontend-test")
+                    new Claim("unique_name", "catalog-frontend-test"),
+                    new Claim("application", "App"), new Claim("role", "Customer")
                 }, "CatalogTestToken"));
                 context.Success();
             }

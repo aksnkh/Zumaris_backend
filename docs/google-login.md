@@ -1,5 +1,7 @@
 <div dir="rtl" align="right">
 
+> Application-scoped authentication update: login now requires `application` (`App`, `Tech`, `Admin`). Refresh/logout use application-specific cookies and a mandatory application selector. See [current login, signup and API isolation contract](application-authentication.md); it supersedes older login/refresh examples below.
+
 # ورود Google در Identity
 
 اتصال MVP در فرانت NextAuth نیز پیاده‌سازی شده است: توکن امضاشده Google به Identity فرستاده می‌شود و نشست Zumaris برای درخواست‌های API، refresh و خروج استفاده می‌شود. Redis لازم نیست؛ فرانت این MVP باید با یک پردازش Node و یک replica اجرا شود.

@@ -4,6 +4,8 @@ namespace Identity.Application.Abstractions.Persistence;
 
 public interface ISessionRepository
 {
+    async Task<AuthSession?> FindByIdAsync(Guid sessionId, Guid userId, CancellationToken ct = default) =>
+        (await ListAsync(userId, ct)).FirstOrDefault(s => s.Id == sessionId);
     Task CreateAsync(AuthSession session, string tokenHash, CancellationToken cancellationToken = default);
     Task<AuthSession?> FindByTokenAsync(string tokenHash, CancellationToken cancellationToken = default);
     // Consumes the old token exactly once. Reuse revokes the whole session atomically.

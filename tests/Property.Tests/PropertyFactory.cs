@@ -33,12 +33,12 @@ public sealed class PropertyFactory : WebApplicationFactory<Program>
             services.AddSingleton<IPropertyRepository>(PersistenceOverride??Repository);services.AddSingleton<IIdentitySessionValidator>(Validator);
         });
     }
-    public HttpClient Client(bool authenticated=true,Guid? userId=null,string? signingKey=null,bool sessionClaim=true)
+    public HttpClient Client(bool authenticated=true,Guid? userId=null,string? signingKey=null,bool sessionClaim=true,string application="App")
     {
         var client=CreateClient(new() { AllowAutoRedirect=false });
         if(authenticated)
         {
-            var claims=new List<Claim> { new("sub",(userId??UserId).ToString()) };
+            var claims=new List<Claim> { new("application",application),new("role",application=="Tech"?"Provider":application=="Admin"?"Admin":"Customer"),new("providerId",Guid.NewGuid().ToString()), new("sub",(userId??UserId).ToString()) };
             if(sessionClaim)claims.Add(new("sid",Guid.NewGuid().ToString()));
             var token=new JwtSecurityToken("property-tests","property-clients",claims,DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),
                 new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey??Key)),SecurityAlgorithms.HmacSha256));

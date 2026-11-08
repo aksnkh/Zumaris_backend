@@ -12,7 +12,7 @@ public class ProfileTests
     private static async Task<HttpClient> Login(AuthFactory factory)
     {
         var client = factory.NewClient();
-        using var response = await client.PostAsJsonAsync("/api/auth/login",new { userName="alice",password="Password-for-tests-1" });
+        using var response = await client.PostAsJsonAsync("/api/auth/login",new { userName="alice",password="Password-for-tests-1", application = "App" });
         Assert.Equal(HttpStatusCode.OK,response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         client.DefaultRequestHeaders.Authorization = new("Bearer",json.RootElement.GetProperty("payload").GetProperty("accessToken").GetString());
@@ -142,7 +142,7 @@ public class ProfileTests
             PasswordHash=new Identity.Infrastructure.Security.PasswordHasher().Hash("Password-for-tests-1")
         });
         using var bob = factory.NewClient();
-        var login = await Payload(await bob.PostAsJsonAsync("/api/auth/login",new {userName="bob",password="Password-for-tests-1"}));
+        var login = await Payload(await bob.PostAsJsonAsync("/api/auth/login",new {userName="bob",password="Password-for-tests-1", application = "App"}));
         bob.DefaultRequestHeaders.Authorization=new("Bearer",login.GetProperty("accessToken").GetString());
         var profile = await Payload(await bob.GetAsync("/api/profile/me"));
         Assert.Equal(bobId.ToString(),profile.GetProperty("userId").GetString());

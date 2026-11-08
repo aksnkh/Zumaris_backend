@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -68,17 +69,20 @@ public sealed class ProviderAccountController(IProviderAccountRepository reposit
         Response.Headers.XContentTypeOptions="nosniff";return File(doc.Content,"application/octet-stream",doc.FileName);
     }
     [HttpPost("/api/service-requests/{requestId:guid}/review")]
+    [ApplicationAccess("App")]
     public async Task<IActionResult> Review(Guid requestId,CustomerReviewRequest input,CancellationToken ct)
     {
         var work=await workflow.CompletedWorkAsync(requestId,Bearer,ct);
         return Ok(new {message="Review submitted successfully.",payload=await repository.AddReviewAsync(UserId,work,input,ct)});
     }
     [HttpGet("{providerId:guid}/reviews")]
+    [ApplicationAccess("App", "Tech", "Admin")]
     public async Task<IActionResult> Reviews(Guid providerId,[FromQuery,Range(1,int.MaxValue)]int pageNumber=1,[FromQuery,Range(1,100)]int pageSize=20,CancellationToken ct=default)=>Ok(await repository.ReviewsAsync(providerId,pageNumber,pageSize,ct));
 }
 [ApiController,Authorize,ServiceFilter(typeof(ProviderWorkflowFilter)),ServiceFilter(typeof(ProviderAdminFilter))]
 [ResponseCache(NoStore=true,Location=ResponseCacheLocation.None)]
 [Route("api/admin/providers")]
+[ApplicationAccess("Admin")]
 public sealed class ProviderAdministrationController(IProviderAccountRepository repository):ControllerBase
 {
     [HttpGet]

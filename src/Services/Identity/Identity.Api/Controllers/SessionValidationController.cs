@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -11,6 +12,7 @@ namespace Identity.Api.Controllers;
 public sealed class SessionValidationController(Identity.Application.Abstractions.Persistence.IPlatformAdminRepository administrators) : ControllerBase
 {
     [HttpGet("admin-access")]
+    [ApplicationAccess("Admin")]
     public async Task<IActionResult> AdminAccess(CancellationToken ct)
     {
         Response.Headers.CacheControl = "no-store";

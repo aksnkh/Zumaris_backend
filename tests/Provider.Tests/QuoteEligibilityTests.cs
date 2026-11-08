@@ -48,7 +48,7 @@ public class QuoteEligibilityTests
         }
         public HttpClient Client(bool authenticated=true)
         {
-            var c=CreateClient();if(authenticated){var token=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",Guid.NewGuid().ToString()),new Claim("sid",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",new JwtSecurityTokenHandler().WriteToken(token));}return c;
+            var c=CreateClient();if(authenticated){var token=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",Guid.NewGuid().ToString()),new Claim("sid",Guid.NewGuid().ToString()),new Claim("application","Tech"),new Claim("role","Provider"),new Claim("providerId",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",new JwtSecurityTokenHandler().WriteToken(token));}return c;
         }
     }
     private class Session:IIdentitySessionValidator {public bool Active{get;set;}=true;public Task<bool>IsActiveAsync(string token,bool https,CancellationToken ct)=>Task.FromResult(Active);}

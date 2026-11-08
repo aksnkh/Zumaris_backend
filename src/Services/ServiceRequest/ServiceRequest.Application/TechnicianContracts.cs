@@ -21,7 +21,7 @@ public interface ITechnicianWorkRepository
  Task CompleteAsync(Guid actor,Guid id,string report,IReadOnlyList<StoredPhoto> photos,DateTime now,CancellationToken ct);
  Task<CompletedWorkContext?> CompletedWorkAsync(Guid actor,Guid id,CancellationToken ct);
  Task<int> CompletedJobsAsync(Guid provider,CancellationToken ct);
- Task<PhotoRecord?> PhotoAsync(Guid actor,Guid requestId,Guid photoId,CancellationToken ct);
+ Task<PhotoRecord?> PhotoAsync(Guid actor,Guid requestId,Guid photoId,CancellationToken ct,bool customer=false);
 }
 public sealed class TechnicianWorkService(ITechnicianWorkRepository repository,ITechnicianEligibilityClient eligibility,IPhotoStorage storage,TimeProvider clock)
 {
@@ -55,8 +55,8 @@ public sealed class TechnicianWorkService(ITechnicianWorkRepository repository,I
   finally {if(!committed)foreach(var file in saved)await storage.DeleteAsync(file.FilePath);}
  }
  public async Task<CompletedWorkContext> CompletedAsync(Guid actor,Guid id,CancellationToken ct)=>await repository.CompletedWorkAsync(actor,id,ct)??throw new RequestNotFoundException();
- public async Task<PhotoDownload> PhotoAsync(Guid actor,Guid id,Guid photo,CancellationToken ct)
- {var item=await repository.PhotoAsync(actor,id,photo,ct)??throw new RequestNotFoundException();return await storage.OpenAsync(item.FilePath,ct);}
+ public async Task<PhotoDownload> PhotoAsync(Guid actor,Guid id,Guid photo,CancellationToken ct,bool customer=false)
+ {var item=await repository.PhotoAsync(actor,id,photo,ct,customer)??throw new RequestNotFoundException();return await storage.OpenAsync(item.FilePath,ct);}
  private static void Page(int page,int size)
  {if(page<1||size is <1 or >100)throw new RequestValidationException(new(){["pagination"]=["Use a positive pageNumber and pageSize from 1 to 100."]});}
 }

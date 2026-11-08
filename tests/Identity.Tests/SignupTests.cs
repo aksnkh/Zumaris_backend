@@ -22,8 +22,8 @@ public class SignupTests
   c.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",payload.GetProperty("accessToken").GetString());
   Assert.Equal(HttpStatusCode.NoContent,(await c.GetAsync("/api/auth/session")).StatusCode);
   c.DefaultRequestHeaders.Authorization=null;
-  var login=await c.PostAsJsonAsync("/api/auth/login",new{userName="JOHN@example.test",password="Password-for-tests-2"});Assert.Equal(HttpStatusCode.OK,login.StatusCode);
-  Assert.Equal(HttpStatusCode.Unauthorized,(await c.PostAsJsonAsync("/api/auth/login",new{userName="john@example.test",password="Wrong-password"})).StatusCode);
+  var login=await c.PostAsJsonAsync("/api/auth/login",new{userName="JOHN@example.test",password="Password-for-tests-2", application = "App"});Assert.Equal(HttpStatusCode.OK,login.StatusCode);
+  Assert.Equal(HttpStatusCode.Unauthorized,(await c.PostAsJsonAsync("/api/auth/login",new{userName="john@example.test",password="Wrong-password", application = "App"})).StatusCode);
   var duplicate=await c.PostAsJsonAsync("/api/auth/signup",Input());Assert.Equal(HttpStatusCode.Conflict,duplicate.StatusCode);using var conflict=JsonDocument.Parse(await duplicate.Content.ReadAsStringAsync());Assert.Equal(JsonValueKind.Null,conflict.RootElement.GetProperty("payload").ValueKind);
   Assert.Single(f.Users.GoogleUsers);
  }

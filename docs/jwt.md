@@ -1,5 +1,7 @@
 # Identity JWT and sessions
 
+> Application-scoped authentication update: login now requires `application` (`App`, `Tech`, `Admin`). Refresh/logout use application-specific cookies and a mandatory application selector. See [current login, signup and API isolation contract](application-authentication.md); it supersedes older login/refresh examples below.
+
 ## Apply the database script yourself
 
 1. Select the existing Identity MySQL database (MySQL 8.0 or later), take your usual backup, and confirm the names `zumaris_auth_sessions` and `zumaris_auth_refresh_tokens` are not already used for another schema.

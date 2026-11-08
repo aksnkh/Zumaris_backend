@@ -130,7 +130,7 @@ public class IndependentDocumentTests
    b.ConfigureServices(s=>{s.RemoveAll<IProviderWorkflowClient>();s.AddSingleton<IProviderWorkflowClient>(new AdminClient(Admin));s.RemoveAll<IIdentitySessionValidator>();s.AddSingleton<IIdentitySessionValidator>(Session);});
   }
   public HttpClient Client(bool authenticated=true,Guid? user=null)
-  {var c=CreateClient();if(authenticated){var token=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",(user??User).ToString()),new Claim("sid",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new("Bearer",new JwtSecurityTokenHandler().WriteToken(token));}return c;}
+  {var c=CreateClient();if(authenticated){var token=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",(user??User).ToString()),new Claim("sid",Guid.NewGuid().ToString()),new Claim("application",((user??User)==Admin?"Admin":"Tech")),new Claim("role",(((user??User)==Admin?"Admin":"Tech")=="Tech"?"Provider":((user??User)==Admin?"Admin":"Tech")=="Admin"?"Admin":"Customer")),new Claim("providerId",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new("Bearer",new JwtSecurityTokenHandler().WriteToken(token));}return c;}
  }
  private class Session:IIdentitySessionValidator{public bool Active=true;public Task<bool> IsActiveAsync(string t,bool h,CancellationToken ct)=>Task.FromResult(Active);}
  private class AdminClient(Guid admin):IProviderWorkflowClient

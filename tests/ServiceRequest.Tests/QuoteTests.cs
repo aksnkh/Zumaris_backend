@@ -26,7 +26,7 @@ public class QuoteTests
     [InlineData(75,20,"USD")]
     public async Task Invalid_quote_prices_have_customer_messages(double labour,double callout,string currency)
     {
-        using var f=new RequestFactory();using var c=f.Client();
+        using var f=new RequestFactory();using var c=f.Client(application:"Tech");
         using var response=await c.PostAsJsonAsync($"/api/service-requests/{Guid.NewGuid()}/quotes",new{labourAmount=labour,calloutAmount=callout,currencyCode=currency});
         Assert.Equal(HttpStatusCode.BadRequest,response.StatusCode);
         using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync());Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("message").GetString()));
@@ -34,7 +34,7 @@ public class QuoteTests
     [Fact]
     public async Task Huge_decimal_inputs_do_not_overflow_and_provider_identity_cannot_be_spoofed()
     {
-        using var f=new RequestFactory();using var c=f.Client();
+        using var f=new RequestFactory();using var c=f.Client(application:"Tech");
         Assert.Equal(HttpStatusCode.BadRequest,(await c.PostAsJsonAsync($"/api/service-requests/{Guid.NewGuid()}/quotes",new{labourAmount=decimal.MaxValue,calloutAmount=decimal.MaxValue})).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest,(await c.PostAsJsonAsync($"/api/service-requests/{Guid.NewGuid()}/quotes",new{labourAmount=75,calloutAmount=20,providerId=Guid.NewGuid(),totalAmount=1})).StatusCode);
     }

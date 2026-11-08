@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using Zumaris.BuildingBlocks.Common.Validation;
 using System.Net;
 using System.Text;
@@ -13,6 +14,7 @@ using Zumaris.Property.Infrastructure.Integrations;
 using Zumaris.Property.Api.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddApplicationIsolation("App");
 builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,reloadOnChange:false)
     .AddEnvironmentVariables().AddCommandLine(args);
 var identityUri = new Uri(builder.Configuration["Identity:BaseUrl"] ?? "http://127.0.0.1:5001/");

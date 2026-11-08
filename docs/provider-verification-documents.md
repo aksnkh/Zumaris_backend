@@ -10,7 +10,7 @@ IdentityCheck requires exactly one current identification file and an `identityK
 
 ## Technician APIs
 
-Gateway prefix: `/provider`. Bearer authentication and an active Identity session are required. New JSON responses use `Response<T>`; data is under `payload`, English messages under `message`.
+Gateway prefix: `/provider`. A **Tech** Bearer token and an active Identity session are required for own-document routes; administrator routes require an **Admin** token plus server-side membership. App tokens cannot access these document APIs. See [application authentication](application-authentication.md) for login, enrolment and refresh changes. New JSON responses use `Response<T>`; data is under `payload`, English messages under `message`.
 
 | Method | Provider-local path | Purpose |
 |---|---|---|

@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -74,6 +75,7 @@ public sealed class VerificationDocumentsController(VerificationDocumentService 
 [ApiController,Authorize,ResponseErrors,ServiceFilter(typeof(VerificationExceptionFilter)),ServiceFilter(typeof(VerificationAdminFilter))]
 [ResponseCache(NoStore=true,Location=ResponseCacheLocation.None)]
 [Route("api/admin")]
+[ApplicationAccess("Admin")]
 public sealed class VerificationDocumentAdministrationController(VerificationDocumentService service,IProviderVerificationRepository repository):ControllerBase
 {
  private Guid Actor=>Guid.Parse(User.FindFirst("sub")!.Value);

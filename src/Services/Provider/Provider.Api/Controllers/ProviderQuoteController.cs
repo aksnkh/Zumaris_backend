@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ namespace Zumaris.Provider.Api.Controllers;
 public sealed class ProviderQuoteController(IProviderQuoteRepository providers,IProviderWorkflowClient workflow):ControllerBase
 {
     [HttpGet("{providerId:guid}/summary")]
+    [ApplicationAccess("App", "Tech", "Admin")]
     public async Task<IActionResult> Summary(Guid providerId,CancellationToken ct)
     {
         var item=await providers.SummaryAsync(providerId,ct);return item is null?NotFound():Ok(item);
@@ -23,6 +25,7 @@ public sealed class ProviderQuoteController(IProviderQuoteRepository providers,I
     }
     // Public business identity, accessible to authenticated customers for quote eligibility checks.
     [HttpGet("{providerId:guid}/quote-profile")]
+    [ApplicationAccess("App", "Tech", "Admin")]
     public async Task<IActionResult> Public(Guid providerId,[FromQuery,Range(1,int.MaxValue)]int categoryId,CancellationToken ct)
     {
         var item=await providers.GetAsync(null,providerId,categoryId,ct);

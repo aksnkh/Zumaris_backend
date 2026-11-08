@@ -10,7 +10,10 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace Identity.Api.Controllers;
 
 public sealed record GoogleLoginRequest([Required, StringLength(16384)] string IdToken);
-public sealed record BffRefreshRequest([Required, StringLength(128)] string RefreshToken);
+public sealed record GoogleSignInRequest([Required, StringLength(16384)] string IdToken,
+    [Required, RegularExpression("^(App|Tech|Admin)$")] string Application);
+public sealed record BffRefreshRequest([Required, StringLength(128)] string RefreshToken,
+    [Required, RegularExpression("^(App|Tech|Admin)$")] string Application);
 public sealed record BffTokenResponse(AuthResponse Payload, string RefreshToken);
 
 // Server-to-server credential; never put it in NEXT_PUBLIC_ variables or browser JavaScript.
@@ -36,6 +39,7 @@ public sealed class BffOnlyFilter(IConfiguration configuration) : IAuthorization
     {
         context.Result = context.Exception switch
         {
+            ApplicationLoginException ex => new ObjectResult(Zumaris.BuildingBlocks.Common.Responses.ApiResponseError.Create(ex.Status,ex.Message,context.HttpContext.TraceIdentifier)){StatusCode=ex.Status},
             UnauthorizedAccessException => new UnauthorizedObjectResult(new ProblemDetails { Status = 401, Title = "Invalid identity or session." }),
             ExternalLoginConflictException => new ConflictObjectResult(new ProblemDetails { Status = 409, Title = "Sign in to your existing account and explicitly link Google." }),
             GoogleLoginUnavailableException => new ObjectResult(new ProblemDetails { Status = 503, Title = "Google sign-in is unavailable or not configured." }) { StatusCode = 503 },
@@ -53,10 +57,10 @@ public sealed class GoogleBffController(GoogleAuthService google, IAuthService a
 {
     [HttpPost("google")]
     [ProducesResponseType(typeof(BffTokenResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GoogleLogin(GoogleLoginRequest request,
+    public async Task<IActionResult> GoogleLogin(GoogleSignInRequest request,
         [FromHeader(Name = "X-Zumaris-Bff-Key"), Required] string bffKey, CancellationToken ct)
     {
-        var (response, refresh) = await google.LoginAsync(request.IdToken, ct);
+        var (response, refresh) = await google.LoginAsync(request.IdToken, ct, request.Application);
         return Ok(new BffTokenResponse(response, refresh));
     }
     [Authorize]
@@ -73,7 +77,7 @@ public sealed class GoogleBffController(GoogleAuthService google, IAuthService a
     public async Task<IActionResult> Refresh(BffRefreshRequest request,
         [FromHeader(Name = "X-Zumaris-Bff-Key"), Required] string bffKey, CancellationToken ct)
     {
-        var (response, refresh) = await authService.RefreshAsync(request.RefreshToken, ct);
+        var (response, refresh) = await authService.RefreshAsync(request.RefreshToken, ct, request.Application);
         return Ok(new BffTokenResponse(response, refresh));
     }
     [HttpPost("bff/logout")]
@@ -81,7 +85,7 @@ public sealed class GoogleBffController(GoogleAuthService google, IAuthService a
     public async Task<IActionResult> Logout(BffRefreshRequest request,
         [FromHeader(Name = "X-Zumaris-Bff-Key"), Required] string bffKey, CancellationToken ct)
     {
-        await authService.LogoutAsync(request.RefreshToken, ct);
+        await authService.LogoutAsync(request.RefreshToken, ct, request.Application);
         return NoContent();
     }
 }

@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using Zumaris.BuildingBlocks.Common.Responses;
 using Zumaris.BuildingBlocks.Common.Validation;
 using System.Net;
@@ -12,6 +13,7 @@ using Zumaris.Provider.Infrastructure.Persistence;
 using Zumaris.Provider.Infrastructure.Integrations;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddApplicationIsolation("Tech");
 builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,reloadOnChange:false)
     .AddEnvironmentVariables().AddCommandLine(args);
 var identityUri = new Uri(builder.Configuration["Identity:BaseUrl"] ?? "http://127.0.0.1:5001/");
@@ -21,6 +23,7 @@ if (!identityUri.IsAbsoluteUri || (identityUri.Scheme != "https" && !(identityUr
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IProviderQuoteRepository,ProviderQuoteRepository>();
 builder.Services.AddHealthChecks();
+builder.Services.AddScoped<IProviderLoginAccessRepository,ProviderLoginAccessRepository>();
 builder.Services.AddScoped<IProviderAccountRepository,ProviderAccountRepository>();
 builder.Services.AddScoped<IProviderVerificationRepository,ProviderVerificationRepository>();
 builder.Services.AddScoped<VerificationDocumentService>();
@@ -123,7 +126,36 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         }
     };
 });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthentication().AddJwtBearer("IdentityLoginAccess", options =>
+{
+    options.MapInboundClaims = false; options.IncludeErrorDetails = false;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true, ValidateAudience = true, ValidateLifetime = true, ValidateIssuerSigningKey = true,
+        RequireSignedTokens = true, RequireExpirationTime = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"], ValidAudience = "Zumaris.Provider.LoginAccess",
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+        ValidAlgorithms = [SecurityAlgorithms.HmacSha256], ValidTypes = ["JWT"], ClockSkew = TimeSpan.FromSeconds(5)
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = context =>
+        {
+            var token = context.SecurityToken;
+            if (context.Principal?.FindFirst("scope")?.Value != "provider-login-access" ||
+                !Guid.TryParse(context.Principal.FindFirst("sub")?.Value, out var user) || user == Guid.Empty ||
+                token.ValidTo - token.ValidFrom > TimeSpan.FromSeconds(30)) context.Fail("Invalid login access credential.");
+            return Task.CompletedTask;
+        },
+        OnChallenge = async context =>
+        {
+            context.HandleResponse();
+            await Results.Json(ApiResponseError.Create(401,"An Identity login access credential is required.",context.HttpContext.TraceIdentifier),options:new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web){Converters={new JsonStringEnumConverter<MessageLevel>()}},statusCode:401).ExecuteAsync(context.HttpContext);
+        }
+    };
+});
+builder.Services.AddAuthorization(options => options.AddPolicy("IdentityLoginAccess", policy =>
+    policy.AddAuthenticationSchemes("IdentityLoginAccess").RequireAuthenticatedUser().RequireClaim("scope", "provider-login-access")));
 var app = builder.Build();
 if (Encoding.UTF8.GetByteCount(app.Configuration["Jwt:Key"] ?? "") < 32 ||
     string.IsNullOrWhiteSpace(app.Configuration["Jwt:Issuer"]) || string.IsNullOrWhiteSpace(app.Configuration["Jwt:Audience"]))

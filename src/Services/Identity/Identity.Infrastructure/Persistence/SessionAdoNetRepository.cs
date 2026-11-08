@@ -31,17 +31,19 @@ public sealed class SessionAdoNetRepository(IConfiguration configuration) : ISes
         reader.GetString("user_name"), DateTime.SpecifyKind(reader.GetDateTime("created_at"), DateTimeKind.Utc),
         DateTime.SpecifyKind(reader.GetDateTime("expires_at"), DateTimeKind.Utc),
         reader.IsDBNull(reader.GetOrdinal("revoked_at")) ? null :
-            DateTime.SpecifyKind(reader.GetDateTime("revoked_at"), DateTimeKind.Utc));
+            DateTime.SpecifyKind(reader.GetDateTime("revoked_at"), DateTimeKind.Utc))
+        { Application = reader.IsDBNull(reader.GetOrdinal("application")) ? null : reader.GetString("application"),
+          ProviderId = reader.IsDBNull(reader.GetOrdinal("provider_id")) ? null : reader.GetGuid(reader.GetOrdinal("provider_id")) };
 
     public async Task CreateAsync(AuthSession session, string tokenHash, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         await using var insert = Command(connection, """
-            INSERT INTO zumaris_auth_sessions (id, user_id, user_name, created_at, expires_at)
-            VALUES (@id, @user, @name, @created, @expires)
+            INSERT INTO zumaris_auth_sessions (id, user_id, user_name, created_at, expires_at, application, provider_id)
+            VALUES (@id, @user, @name, @created, @expires, @application, @provider)
             """, transaction, ("@id", session.Id.ToString()), ("@user", session.UserId.ToString()),
-            ("@name", session.UserName), ("@created", session.CreatedAtUtc), ("@expires", session.ExpiresAtUtc));
+            ("@name", session.UserName), ("@created", session.CreatedAtUtc), ("@expires", session.ExpiresAtUtc), ("@application", (object?)session.Application ?? DBNull.Value), ("@provider", (object?)session.ProviderId?.ToString() ?? DBNull.Value));
         await insert.ExecuteNonQueryAsync(cancellationToken);
         await using var token = Command(connection, """
             INSERT INTO zumaris_auth_refresh_tokens (token_hash, session_id, created_at)
@@ -108,6 +110,13 @@ public sealed class SessionAdoNetRepository(IConfiguration configuration) : ISes
         return true;
     }
 
+    public async Task<AuthSession?> FindByIdAsync(Guid sessionId, Guid userId, CancellationToken ct = default)
+    {
+        await using var connection = await OpenAsync(ct);
+        await using var command = Command(connection, "SELECT * FROM zumaris_auth_sessions WHERE id=@id AND user_id=@user AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6)", null, ("@id",sessionId.ToString()), ("@user",userId.ToString()));
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct) ? ReadSession(reader) : null;
+    }
     public async Task<bool> IsActiveAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);

@@ -18,6 +18,8 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
 {
     public string EnvironmentName { get; init; } = "Development";
     public const string TestKey = "test-only-signing-key-never-use-in-deployment-123456789";
+    public FakeApplicationProviders ApplicationProviders { get; } = new();
+    public FakeApplicationAdmins ApplicationAdmins { get; } = new();
     public MemoryUsers Users { get; } = new();
     public MemorySessions Sessions { get; } = new();
     public FakeGoogleValidator Google { get; } = new();
@@ -39,6 +41,8 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_,config) => config.AddInMemoryCollection(new Dictionary<string,string?> { ["ProfilePhotos:RootPath"]=ProfilePhotoRoot }));
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<IProviderLoginAccessClient>();services.AddSingleton<IProviderLoginAccessClient>(ApplicationProviders);
+            services.RemoveAll<IPlatformAdminRepository>();services.AddSingleton<IPlatformAdminRepository>(ApplicationAdmins);
             services.RemoveAll<ISignupRepository>();services.AddSingleton<ISignupRepository>(Signups);
             services.RemoveAll<IProfileRepository>();
             services.AddSingleton<IProfileRepository>(Profiles);
@@ -195,4 +199,20 @@ public sealed class MemorySignup(MemoryUsers users,MemoryProfiles profiles):ISig
  }
  public Task<User?> FindByEmailAsync(string email,CancellationToken ct)
  {var matches=users.GoogleUsers.Append(users.User).Where(u=>string.Equals(u.Email,email.Trim(),StringComparison.OrdinalIgnoreCase)).Take(2).ToArray();return Task.FromResult(matches.Length==1?matches[0]:null);}
+}
+
+public sealed class FakeApplicationProviders : IProviderLoginAccessClient
+{
+    public Dictionary<Guid,ProviderLoginAccess> Items { get; } = new();
+    public bool Unavailable { get; set; }
+    public Task<ProviderLoginAccess?> GetAsync(Guid userId,CancellationToken ct)
+    {
+        if(Unavailable)throw new ApplicationLoginException(503,"Provider sign-in validation is temporarily unavailable.");
+        return Task.FromResult(Items.GetValueOrDefault(userId));
+    }
+}
+public sealed class FakeApplicationAdmins : IPlatformAdminRepository
+{
+    public HashSet<Guid> Users { get; } = new();
+    public Task<bool> IsAdminAsync(Guid userId,CancellationToken ct)=>Task.FromResult(Users.Contains(userId));
 }

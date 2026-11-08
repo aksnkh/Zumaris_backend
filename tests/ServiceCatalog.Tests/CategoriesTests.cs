@@ -99,7 +99,7 @@ public class CategoriesTests
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync() => Task.FromResult(
             Request.Headers.ContainsKey("X-Test-User")
-                ? AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(new[] {new Claim("sub", Guid.NewGuid().ToString())},"Test")),"Test"))
+                ? AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(new[] {new Claim("sub", Guid.NewGuid().ToString()),new Claim("application","App"),new Claim("role","Customer")},"Test")),"Test"))
                 : AuthenticateResult.NoResult());
     }
 }

@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using Identity.Application.Features.Signup;
 using Identity.Application.Features.Profile;
 using Identity.Infrastructure.Storage;
@@ -17,6 +18,7 @@ using Microsoft.OpenApi;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddApplicationIsolation("App", "Tech", "Admin");
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables().AddCommandLine(args);
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
@@ -61,6 +63,17 @@ builder.Services.AddScoped<IPlatformAdminRepository, PlatformAdminRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ApplicationLoginAccess>();
+var providerUri = new Uri(builder.Configuration["Provider:BaseUrl"] ?? "http://127.0.0.1:5007/");
+if (!providerUri.IsAbsoluteUri || !string.IsNullOrEmpty(providerUri.UserInfo) || !providerUri.AbsoluteUri.EndsWith('/') ||
+    !(providerUri.Scheme == "https" || providerUri.Scheme == "http" && providerUri.IsLoopback))
+    throw new InvalidOperationException("Provider:BaseUrl must use HTTPS or loopback HTTP, end with a slash and contain no credentials.");
+builder.Services.AddHttpClient<IProviderLoginAccessClient, ProviderLoginAccessClient>(client =>
+{
+    client.BaseAddress = providerUri;
+    client.Timeout = TimeSpan.FromSeconds(5);
+    if (providerUri.IsLoopback) client.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<ISignupRepository,SignupRepository>();
 builder.Services.AddScoped<SignupService>();
 builder.Services.AddScoped<SignupExceptionFilter>();
@@ -108,8 +121,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
                 !Guid.TryParse(context.Principal?.FindFirst("sid")?.Value, out var sessionId))
             { context.Fail("Invalid session claims."); return; }
             var sessions = context.HttpContext.RequestServices.GetRequiredService<ISessionRepository>();
-            if (!await sessions.IsActiveAsync(sessionId, userId, context.HttpContext.RequestAborted))
-                context.Fail("Session has been revoked or expired.");
+            var session = await sessions.FindByIdAsync(sessionId, userId, context.HttpContext.RequestAborted);
+            if (session is null || !Applications.HasValidContext(context.Principal!) ||
+                session.Application != context.Principal!.FindFirst("application")?.Value ||
+                session.ProviderId?.ToString() != context.Principal.FindFirst("providerId")?.Value)
+                context.Fail("The application session is invalid or expired.");
         }
     };
 });

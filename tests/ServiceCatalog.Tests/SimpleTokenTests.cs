@@ -46,7 +46,7 @@ public class SimpleTokenTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         var now = DateTime.UtcNow;
         var jwt = new JwtSecurityToken("tests","tests",new[] {
-            new Claim("sub",Guid.NewGuid().ToString()),new Claim("sid",Guid.NewGuid().ToString())
+            new Claim("sub",Guid.NewGuid().ToString()),new Claim("sid",Guid.NewGuid().ToString()),new Claim("application","App"),new Claim("role","Customer"),new Claim("providerId",Guid.NewGuid().ToString())
         },now.AddMinutes(-1),now.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));
         client.DefaultRequestHeaders.Authorization = new("Bearer",new JwtSecurityTokenHandler().WriteToken(jwt));
         Assert.Equal((HttpStatusCode)status,(await client.GetAsync("/api/categories")).StatusCode);

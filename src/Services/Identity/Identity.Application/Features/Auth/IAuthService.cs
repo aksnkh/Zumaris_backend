@@ -11,9 +11,9 @@ public interface IAuthService
 
     Task<(AuthResponse Response, string RefreshToken)> RefreshAsync(
         string refreshToken,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, string? application = null);
 
-    Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default);
+    Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default, string? application = null);
 
     Task<RegisterResponse> RegisterAsync(RegisterRequest request);
 }

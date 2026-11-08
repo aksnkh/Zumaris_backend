@@ -18,10 +18,13 @@ public class AdminAccessTests
   using var f=source.WithWebHostBuilder(b=>b.ConfigureServices(s=>{s.RemoveAll<IPlatformAdminRepository>();s.AddSingleton<IPlatformAdminRepository>(admins);}));
   using var c=f.CreateClient(new(){BaseAddress=new Uri("https://localhost"),HandleCookies=false});c.DefaultRequestHeaders.Add("X-Zumaris-CSRF","1");
   Assert.Equal(HttpStatusCode.Unauthorized,(await c.GetAsync("/api/auth/session/admin-access")).StatusCode);
-  var login=await c.PostAsJsonAsync("/api/auth/login",new{userName="alice",password="Password-for-tests-1"});Assert.Equal(HttpStatusCode.OK,login.StatusCode);
+  var login=await c.PostAsJsonAsync("/api/auth/login",new{userName="alice",password="Password-for-tests-1", application = "App"});Assert.Equal(HttpStatusCode.OK,login.StatusCode);
   using var json=JsonDocument.Parse(await login.Content.ReadAsStringAsync());c.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",json.RootElement.GetProperty("payload").GetProperty("accessToken").GetString());
   Assert.Equal(HttpStatusCode.Forbidden,(await c.GetAsync("/api/auth/session/admin-access")).StatusCode);
-  admins.Allowed=true;Assert.Equal(HttpStatusCode.NoContent,(await c.GetAsync("/api/auth/session/admin-access")).StatusCode);
+  admins.Allowed=true;
+  var adminLogin=await c.PostAsJsonAsync("/api/auth/login",new{userName="alice",password="Password-for-tests-1",application="Admin"});Assert.Equal(HttpStatusCode.OK,adminLogin.StatusCode);
+  using var adminJson=JsonDocument.Parse(await adminLogin.Content.ReadAsStringAsync());c.DefaultRequestHeaders.Authorization=new("Bearer",adminJson.RootElement.GetProperty("payload").GetProperty("accessToken").GetString());
+  Assert.Equal(HttpStatusCode.NoContent,(await c.GetAsync("/api/auth/session/admin-access")).StatusCode);
   admins.Allowed=false;Assert.Equal(HttpStatusCode.Forbidden,(await c.GetAsync("/api/auth/session/admin-access")).StatusCode);
  }
  private class Admins:IPlatformAdminRepository

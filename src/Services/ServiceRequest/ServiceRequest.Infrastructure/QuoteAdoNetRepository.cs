@@ -83,10 +83,10 @@ public sealed class QuoteAdoNetRepository(IConfiguration configuration) : IQuote
         var items=new List<QuoteDto>();await using(var r=await cmd.ExecuteReaderAsync(ct))while(await r.ReadAsync(ct)){var item=Read(r);items.Add(sent&&item.Status!="Accepted"?item with {PropertyAddress=null}:item);}
         await tx.CommitAsync(ct);return new(items,page,size,total);
     }
-    public async Task<QuoteDto?> GetAsync(Guid actor,Guid id,DateTime now,CancellationToken ct)
+    public async Task<QuoteDto?> GetAsync(Guid actor,Guid id,DateTime now,CancellationToken ct,bool? sent=null)
     {
         await using var c=new MySqlConnection(cs);await c.OpenAsync(ct);
-        await using var cmd=Cmd(c,null,"SELECT q.*,"+Effective+" AS effective_status FROM service_request_quotes q JOIN service_requests r ON r.id=q.request_id WHERE q.id=@id AND ((q.customer_id=@actor AND r.user_id=@actor) OR q.provider_user_id=@actor)",("@id",id.ToString()),("@actor",actor.ToString()),("@now",now));
+        await using var cmd=Cmd(c,null,"SELECT q.*,"+Effective+" AS effective_status FROM service_request_quotes q JOIN service_requests r ON r.id=q.request_id WHERE q.id=@id AND (((@sent IS NULL OR @sent=0) AND q.customer_id=@actor AND r.user_id=@actor) OR ((@sent IS NULL OR @sent=1) AND q.provider_user_id=@actor))",("@id",id.ToString()),("@actor",actor.ToString()),("@now",now),("@sent",sent));
         await using var r=await cmd.ExecuteReaderAsync(ct);
         if(!await r.ReadAsync(ct))return null;
         var item=Read(r);return r.GetGuid(r.GetOrdinal("customer_id"))!=actor&&item.Status!="Accepted"?item with {PropertyAddress=null}:item;

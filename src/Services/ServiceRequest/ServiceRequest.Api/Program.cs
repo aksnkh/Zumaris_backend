@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using Zumaris.ServiceRequests.Application.Quotes;
 using Zumaris.BuildingBlocks.Common.Validation;
 using System.Net;
@@ -12,6 +13,7 @@ using Zumaris.ServiceRequests.Infrastructure;
 using Zumaris.ServiceRequests.Api.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddApplicationIsolation("App");
 builder.Services.Configure<IISServerOptions>(options => options.MaxRequestBodySize = 44 * 1024 * 1024);
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables().AddCommandLine(args);

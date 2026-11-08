@@ -32,7 +32,7 @@ public sealed class SignupController(SignupService signup):ControllerBase
   var (auth,refresh)=await signup.CreateAsync(input,ct);
   foreach(var legacyPath in new[]{"/api/auth","/identity/api/auth"})
    Response.Cookies.Delete(AuthController.CookieName,new CookieOptions{HttpOnly=true,Secure=!HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment(),SameSite=SameSiteMode.Strict,Path=legacyPath,IsEssential=true});
-  Response.Cookies.Append(AuthController.CookieName,refresh,new CookieOptions{HttpOnly=true,Secure=!HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment(),SameSite=SameSiteMode.Strict,Path="/",IsEssential=true,Expires=new DateTimeOffset(DateTime.SpecifyKind(auth.RefreshTokenExpiresAtUtc,DateTimeKind.Utc))});
+  Response.Cookies.Append(AuthController.CookieNameFor(auth.Application),refresh,new CookieOptions{HttpOnly=true,Secure=!HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment(),SameSite=SameSiteMode.Strict,Path="/",IsEssential=true,Expires=new DateTimeOffset(DateTime.SpecifyKind(auth.RefreshTokenExpiresAtUtc,DateTimeKind.Utc))});
   return StatusCode(201,new Response<AuthResponse>(auth){StatusCode=201,Title="Created",Message="Account created successfully.",MessageLevel=MessageLevel.Cif});
  }
 }

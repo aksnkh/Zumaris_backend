@@ -1,5 +1,7 @@
 # Identity integration
 
+> Application-scoped authentication update: login now requires `application` (`App`, `Tech`, `Admin`). Refresh/logout use application-specific cookies and a mandatory application selector. See [current login, signup and API isolation contract](application-authentication.md); it supersedes older login/refresh examples below.
+
 The supplied `identity.rar` is integrated into the root solution under `src/Services/Identity`, with shared response types under `src/BuildingBlocks`. Generated artifacts, personal Visual Studio files, the archive's separate solution and deployment workflow were excluded.
 
 The configuration dependencies target stable .NET 8 packages. API, Application, Domain and Infrastructure remain separate projects, and persistence uses MySqlConnector with direct parameterized SQL and the existing registration/user-lookup stored procedures; no ORM is used.

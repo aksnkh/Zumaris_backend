@@ -52,13 +52,13 @@ public sealed class QuoteService(IQuoteRepository repository,IProviderQuoteEligi
             throw new RequestValidationException(new(){["pagination"]=["Use positive pageNumber, pageSize 1–100 and a nonempty propertyId when supplied."]});
         return repository.ListAsync(actor,sent,normalized,propertyId,page,size,clock.GetUtcNow().UtcDateTime,ct);
     }
-    public async Task<QuoteDto> GetAsync(Guid actor,Guid id,CancellationToken ct)=>
-        await repository.GetAsync(actor,id,clock.GetUtcNow().UtcDateTime,ct)??throw new QuoteNotFoundException();
+    public async Task<QuoteDto> GetAsync(Guid actor,Guid id,CancellationToken ct,bool? sent=null)=>
+        await repository.GetAsync(actor,id,clock.GetUtcNow().UtcDateTime,ct,sent)??throw new QuoteNotFoundException();
     public async Task<QuoteDto> DecideAsync(Guid actor,Guid id,string decision,string bearer,CancellationToken ct)
     {
         if(decision=="Accepted")
         {
-            var current=await GetAsync(actor,id,ct);
+            var current=await GetAsync(actor,id,ct,false);
             if(current.Status=="Pending")await providers.VerifyAsync(current.ProviderId,current.CategoryId,bearer,ct);
         }
         return await repository.DecideAsync(actor,id,decision,clock.GetUtcNow().UtcDateTime,ct);

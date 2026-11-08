@@ -42,7 +42,7 @@ public sealed class TechnicianWorkRepository(IConfiguration configuration):ITech
  public async Task<TechnicianJob?> JobAsync(Guid actor,Guid id,bool customer,CancellationToken ct)
  {
   await using var c=await Open(ct);await using var tx=await c.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct);
-  await using var cmd=Cmd(c,tx,"SELECT r.*,q.id AS quote_id,q.total_amount AS quote_amount,q.currency_code AS quote_currency,e.started_at,e.completed_at,e.work_report"+Join+" LEFT JOIN service_request_execution e ON e.request_id=r.id WHERE r.id=@id AND (q.provider_user_id=@actor OR (@customer=1 AND r.user_id=@actor))",("@actor",actor.ToString()),("@id",id.ToString()),("@customer",customer));
+  await using var cmd=Cmd(c,tx,"SELECT r.*,q.id AS quote_id,q.total_amount AS quote_amount,q.currency_code AS quote_currency,e.started_at,e.completed_at,e.work_report"+Join+" LEFT JOIN service_request_execution e ON e.request_id=r.id WHERE r.id=@id AND ((@customer=0 AND q.provider_user_id=@actor) OR (@customer=1 AND r.user_id=@actor))",("@actor",actor.ToString()),("@id",id.ToString()),("@customer",customer));
   TechnicianJob job;
   await using(var r=await cmd.ExecuteReaderAsync(ct))
   {
@@ -108,15 +108,15 @@ public sealed class TechnicianWorkRepository(IConfiguration configuration):ITech
  {
   await using var c=await Open(ct);await using var cmd=Cmd(c,null,"SELECT COUNT(*) FROM service_requests WHERE technician_id=@provider AND status='Completed'",("@provider",provider.ToString()));return Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
  }
- public async Task<PhotoRecord?> PhotoAsync(Guid actor,Guid id,Guid photo,CancellationToken ct)
+ public async Task<PhotoRecord?> PhotoAsync(Guid actor,Guid id,Guid photo,CancellationToken ct,bool customer=false)
  {
   await using var c=await Open(ct);await using var cmd=Cmd(c,null,"""
     SELECT p.id,p.request_id,p.file_path,p.created_at FROM
     (SELECT id,request_id,file_path,created_at FROM service_request_photos WHERE request_id=@id
      UNION ALL SELECT id,request_id,file_path,created_at FROM service_request_result_photos WHERE request_id=@id) p
     JOIN service_requests r ON r.id=p.request_id JOIN service_request_quotes q ON q.request_id=r.id AND q.status='Accepted' AND q.provider_id=r.technician_id
-    WHERE p.id=@photo AND (r.user_id=@actor OR q.provider_user_id=@actor)
-    """,("@id",id.ToString()),("@photo",photo.ToString()),("@actor",actor.ToString()));
+    WHERE p.id=@photo AND ((@customer=1 AND r.user_id=@actor) OR (@customer=0 AND q.provider_user_id=@actor))
+    """,("@id",id.ToString()),("@photo",photo.ToString()),("@actor",actor.ToString()),("@customer",customer));
   await using var r=await cmd.ExecuteReaderAsync(ct);return await r.ReadAsync(ct)?new(r.GetGuid(0),r.GetGuid(1),r.GetString(2),0,DateTime.SpecifyKind(r.GetDateTime(3),DateTimeKind.Utc)):null;
  }
 }

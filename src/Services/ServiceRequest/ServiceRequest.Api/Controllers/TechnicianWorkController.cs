@@ -1,3 +1,4 @@
+using Zumaris.BuildingBlocks.Common.Security;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ public sealed class CompleteWorkForm
 [ApiController,Authorize,ServiceFilter(typeof(ManagementExceptionFilter)),ServiceFilter(typeof(QuoteExceptionFilter))]
 [ResponseCache(NoStore=true,Location=ResponseCacheLocation.None)]
 [Route("api/technician")]
+[ApplicationAccess("Tech")]
 public sealed class TechnicianWorkController(TechnicianWorkService service,ITechnicianWorkRepository repository):ControllerBase
 {
  private Guid Actor=>Guid.Parse(User.FindFirst("sub")!.Value);
@@ -36,12 +38,16 @@ public sealed class TechnicianWorkController(TechnicianWorkService service,ITech
   finally {foreach(var stream in streams)await stream.DisposeAsync();}
  }
  [HttpGet("jobs/{id:guid}/photos/{photoId:guid}")]
+ [ApplicationAccess("App", "Tech")]
  public async Task<IActionResult> Photo(Guid id,Guid photoId,CancellationToken ct)
- {var p=await service.PhotoAsync(Actor,id,photoId,ct);return File(p.Content,p.ContentType,p.FileName);}
+ {var p=await service.PhotoAsync(Actor,id,photoId,ct,User.FindFirst("application")!.Value=="App");return File(p.Content,p.ContentType,p.FileName);}
  [HttpGet("/api/service-requests/{id:guid}/execution")]
+ [ApplicationAccess("App")]
  public async Task<IActionResult> Execution(Guid id,CancellationToken ct)=>Ok(await service.JobAsync(Actor,id,true,ct));
  [HttpGet("/api/service-requests/{id:guid}/completed-work")]
+ [ApplicationAccess("App")]
  public async Task<IActionResult> Completed(Guid id,CancellationToken ct)=>Ok(await service.CompletedAsync(Actor,id,ct));
  [HttpGet("providers/{providerId:guid}/work-stats")]
+ [ApplicationAccess("App", "Tech", "Admin")]
  public async Task<IActionResult> Stats(Guid providerId,CancellationToken ct)=>Ok(new{completedJobs=await repository.CompletedJobsAsync(providerId,ct)});
 }

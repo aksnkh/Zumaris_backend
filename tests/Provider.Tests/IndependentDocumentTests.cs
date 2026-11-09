@@ -50,6 +50,30 @@ public class IndependentDocumentTests
   Assert.Equal(HttpStatusCode.BadRequest,(await c.PutAsJsonAsync("/api/providers/me/verification-documents/profile",new{postcode=""})).StatusCode);
   f.Session.Active=false;Assert.Equal(HttpStatusCode.Unauthorized,(await c.GetAsync("/api/providers/me/verification-documents")).StatusCode);
  }
+ [Theory]
+ [InlineData("App","/api/admin/providers")]
+ [InlineData("Tech","/api/admin/providers")]
+ [InlineData("Admin","/api/admin/providers")]
+ [InlineData("Admin","/api/admin/providers/11111111-1111-4111-8111-111111111111")]
+ [InlineData("Admin","/api/admin/providers/11111111-1111-4111-8111-111111111111/documents/22222222-2222-4222-8222-222222222222")]
+ [InlineData("Admin","/api/admin/verification-documents")]
+ [InlineData("Admin","/api/admin/providers/11111111-1111-4111-8111-111111111111/verification-documents")]
+ [InlineData("Admin","/api/admin/providers/11111111-1111-4111-8111-111111111111/verification-documents/Insurance")]
+ public async Task Administrator_role_alone_does_not_replace_server_membership(string application,string path)
+ {
+  using var f=new Factory();using var client=f.Client(user:Guid.NewGuid(),application:application);
+  Assert.Equal(HttpStatusCode.Forbidden,(await client.GetAsync(path)).StatusCode);
+ }
+ [Fact]
+ public async Task Administrator_pagination_bounds_are_validated_and_existing_profiles_are_documented()
+ {
+  using var f=new Factory();using var admin=f.Client(user:f.Admin);
+  foreach(var path in new[]{"/api/admin/providers?pageNumber=0","/api/admin/providers?pageSize=101","/api/admin/verification-documents?pageNumber=0","/api/admin/verification-documents?pageSize=101"})
+   Assert.Equal(HttpStatusCode.BadRequest,(await admin.GetAsync(path)).StatusCode);
+  using var swagger=JsonDocument.Parse(await admin.GetStringAsync("/swagger/v1/swagger.json"));var paths=swagger.RootElement.GetProperty("paths");
+  Assert.Equal("#/components/schemas/ProviderPage",paths.GetProperty("/api/admin/providers").GetProperty("get").GetProperty("responses").GetProperty("200").GetProperty("content").GetProperty("application/json").GetProperty("schema").GetProperty("$ref").GetString());
+  Assert.True(paths.TryGetProperty("/api/admin/providers/{id}/documents/{documentId}",out _));
+ }
  [ProviderMySqlFact]
  public async Task Independent_reviews_preserve_previous_approval_and_gate_new_work_on_all_required_documents_and_postcode()
  {
@@ -59,6 +83,11 @@ public class IndependentDocumentTests
   for(int i=0;i<2;i++){await using var cmd=new MySqlCommand((await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/provider",file))).Replace("zumaris_provider","zumaris_provider_test"),db);await cmd.ExecuteNonQueryAsync();}
   using var f=new Factory(cs);using var tech=f.Client();using var admin=f.Client(user:f.Admin);using var stranger=f.Client(user:Guid.NewGuid());Guid provider=Guid.Empty;
   const string prefix="/api/providers/me/verification-documents";
+  async Task<ProviderPage> Pending(int page=1,int size=20)
+  {
+   var response=await admin.GetAsync($"/api/admin/providers?pageNumber={page}&pageSize={size}");Assert.Equal(HttpStatusCode.OK,response.StatusCode);
+   return (await response.Content.ReadFromJsonAsync<ProviderPage>())!;
+  }
   async Task<VerificationDocumentDetails> Detail(string type)=>await Payload<VerificationDocumentDetails>(await tech.GetAsync(prefix+"/"+type));
   async Task<VerificationDocumentDetails> Upload(string type,string contents,string? name=null)
   {using var form=new MultipartFormDataContent();if(type=="IdentityCheck")form.Add(new StringContent("Passport"),"identityKind");form.Add(new ByteArrayContent(Encoding.ASCII.GetBytes("%PDF-1.7\n"+contents)),"file",name??type+".pdf");return await Payload<VerificationDocumentDetails>(await tech.PostAsync(prefix+"/"+type+"/files",form));}
@@ -73,14 +102,24 @@ public class IndependentDocumentTests
    var business=await Upload("IdentityCheck","business-v1");var businessId=business.Document.CurrentDocument!.DocumentId;Assert.Equal("Draft",business.Document.Status);Assert.False(business.Document.IsVerified);
    var same=await Upload("IdentityCheck","business-v1");Assert.Equal(businessId,same.Document.CurrentDocument!.DocumentId);
    var insurance=await Upload("Insurance","insurance-v1");var insuranceId=insurance.Document.CurrentDocument!.DocumentId;
+   Assert.DoesNotContain((await Pending()).Items,x=>x.ProviderId==provider); // Raw/draft uploads never enter the review queue.
    Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync($"/api/admin/providers/{provider}/verification-documents/Insurance/review",new{documentId=insuranceId,approved=true})).StatusCode);
    // Invalid bulk submission must not partially submit the valid first document.
    Assert.Equal(HttpStatusCode.Conflict,(await tech.PostAsJsonAsync(prefix+"/submit",new{documentIds=new[]{businessId,Guid.NewGuid()}})).StatusCode);Assert.Equal("Draft",(await Detail("IdentityCheck")).Document.Status);
    await Payload<VerificationOverview>(await tech.PostAsJsonAsync(prefix+"/submit",new{documentIds=new[]{businessId,insuranceId}}));
    await Payload<VerificationOverview>(await tech.PostAsJsonAsync(prefix+"/submit",new{documentIds=new[]{businessId,insuranceId}}));
+   Assert.Single((await Pending()).Items,x=>x.ProviderId==provider); // Two submissions, one provider row.
+   Assert.DoesNotContain((await Pending(2,1)).Items,x=>x.ProviderId==provider);
+   var adminProfile=await admin.GetFromJsonAsync<ProviderAccount>($"/api/admin/providers/{provider}");Assert.Contains(1,adminProfile!.CategoryIds);Assert.Equal(f.User,adminProfile.UserId);
+   var adminDocuments=await Payload<VerificationOverview>(await admin.GetAsync($"/api/admin/providers/{provider}/verification-documents"));Assert.Equal(3,adminDocuments.Documents.Count);
    Assert.Equal(HttpStatusCode.Forbidden,(await tech.PostAsJsonAsync($"/api/admin/providers/{provider}/verification-documents/Insurance/review",new{documentId=insuranceId,approved=true})).StatusCode);
    await Review("IdentityCheck",businessId,true);Assert.Equal(HttpStatusCode.Forbidden,(await tech.GetAsync("/api/providers/me/eligibility")).StatusCode);
    var rejected=await Review("Insurance",insuranceId,false,"Upload a clearer copy.");Assert.Equal("ActionRequired",rejected.Document.Status);Assert.False(rejected.Document.IsVerified);
+   Assert.DoesNotContain((await Pending()).Items,x=>x.ProviderId==provider); // Reviewed files need technician action, not another admin decision.
+   var adminFile=$"/api/admin/providers/{provider}/documents/{insuranceId}";
+   var fileResponse=await admin.GetAsync(adminFile);Assert.Equal(HttpStatusCode.OK,fileResponse.StatusCode);Assert.Contains("insurance-v1",Encoding.ASCII.GetString(await fileResponse.Content.ReadAsByteArrayAsync()));Assert.NotNull(fileResponse.Content.Headers.ContentDisposition);
+   Assert.Equal(HttpStatusCode.NotFound,(await admin.GetAsync($"/api/admin/providers/{Guid.NewGuid()}/documents/{insuranceId}")).StatusCode);
+   Assert.Equal(HttpStatusCode.NotFound,(await admin.GetAsync($"/api/admin/providers/{Guid.NewGuid()}")).StatusCode);
    Assert.Equal(HttpStatusCode.Conflict,(await tech.PostAsJsonAsync(prefix+"/Insurance/submit",new{documentId=insuranceId})).StatusCode);
    insurance=await Upload("Insurance","insurance-v2");var approvedInsurance=insurance.Document.CurrentDocument!.DocumentId;await Submit("Insurance",approvedInsurance);await Review("Insurance",approvedInsurance,true);await Review("Insurance",approvedInsurance,true);
    Assert.Equal(HttpStatusCode.Forbidden,(await tech.GetAsync("/api/providers/me/eligibility")).StatusCode);
@@ -92,12 +131,16 @@ public class IndependentDocumentTests
    var download=$"/api/providers/me/documents/{insuranceId}";Assert.Equal(HttpStatusCode.OK,(await tech.GetAsync(download)).StatusCode);Assert.Equal(HttpStatusCode.NotFound,(await stranger.GetAsync(download)).StatusCode);
    var replacement=await Upload("Insurance","insurance-v3");var replacementId=replacement.Document.CurrentDocument!.DocumentId;Assert.True(replacement.Document.IsVerified);Assert.Equal("Draft",replacement.Document.Status);Assert.Equal(approvedInsurance,replacement.Document.VerifiedDocument!.DocumentId);
    Assert.Equal(HttpStatusCode.OK,(await tech.GetAsync("/api/providers/me/eligibility")).StatusCode);
-   await Submit("Insurance",replacementId);var rejectedReplacement=await Review("Insurance",replacementId,false,"The replacement is incomplete.");Assert.True(rejectedReplacement.Document.IsVerified);Assert.Equal(approvedInsurance,rejectedReplacement.Document.VerifiedDocument!.DocumentId);Assert.Equal(HttpStatusCode.OK,(await tech.GetAsync("/api/providers/me/eligibility")).StatusCode);
+   Assert.DoesNotContain((await Pending()).Items,x=>x.ProviderId==provider);
+   await Submit("Insurance",replacementId);
+   Assert.Contains((await Pending()).Items,x=>x.ProviderId==provider&&x.IsVerified); // Active approval never hides a submitted replacement.
+   var rejectedReplacement=await Review("Insurance",replacementId,false,"The replacement is incomplete.");Assert.True(rejectedReplacement.Document.IsVerified);Assert.Equal(approvedInsurance,rejectedReplacement.Document.VerifiedDocument!.DocumentId);Assert.Equal(HttpStatusCode.OK,(await tech.GetAsync("/api/providers/me/eligibility")).StatusCode);
    var superseded=await Upload("Insurance","insurance-v4");var oldPending=superseded.Document.CurrentDocument!.DocumentId;await Submit("Insurance",oldPending);
    var latest=await Upload("Insurance","insurance-v5");var latestId=latest.Document.CurrentDocument!.DocumentId;
    Assert.Equal(HttpStatusCode.Conflict,(await admin.PostAsJsonAsync($"/api/admin/providers/{provider}/verification-documents/Insurance/review",new{documentId=oldPending,approved=true})).StatusCode);
    var queue=await Payload<PendingVerificationPage>(await admin.GetAsync("/api/admin/verification-documents"));Assert.DoesNotContain(queue.Items,x=>x.Document.DocumentId==oldPending);
-   await Submit("Insurance",latestId);
+   Assert.DoesNotContain((await Pending()).Items,x=>x.ProviderId==provider); // Superseded InReview file is history, current file is Draft.
+   await Submit("Insurance",latestId);Assert.Contains((await Pending()).Items,x=>x.ProviderId==provider);
    var races=await Task.WhenAll(admin.PostAsJsonAsync($"/api/admin/providers/{provider}/verification-documents/Insurance/review",new{documentId=latestId,approved=true}),admin.PostAsJsonAsync($"/api/admin/providers/{provider}/verification-documents/Insurance/review",new{documentId=latestId,approved=false,feedback="Conflicting decision"}));
    Assert.Single(races,x=>x.StatusCode==HttpStatusCode.OK);Assert.Single(races,x=>x.StatusCode==HttpStatusCode.Conflict);foreach(var result in races)result.Dispose();
    Assert.True((await Detail("Insurance")).Document.IsVerified);
@@ -129,8 +172,19 @@ public class IndependentDocumentTests
    b.UseEnvironment("Development");b.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"Jwt:Key",Key},{"Jwt:Issuer","tests"},{"Jwt:Audience","clients"},{"ConnectionStrings:DefaultConnection",cs??"Server=127.0.0.1;Database=unused;User=test"}}));
    b.ConfigureServices(s=>{s.RemoveAll<IProviderWorkflowClient>();s.AddSingleton<IProviderWorkflowClient>(new AdminClient(Admin));s.RemoveAll<IIdentitySessionValidator>();s.AddSingleton<IIdentitySessionValidator>(Session);});
   }
-  public HttpClient Client(bool authenticated=true,Guid? user=null)
-  {var c=CreateClient();if(authenticated){var token=new JwtSecurityToken("tests","clients",new[]{new Claim("sub",(user??User).ToString()),new Claim("sid",Guid.NewGuid().ToString()),new Claim("application",((user??User)==Admin?"Admin":"Tech")),new Claim("role",(((user??User)==Admin?"Admin":"Tech")=="Tech"?"Provider":((user??User)==Admin?"Admin":"Tech")=="Admin"?"Admin":"Customer")),new Claim("providerId",Guid.NewGuid().ToString())},DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));c.DefaultRequestHeaders.Authorization=new("Bearer",new JwtSecurityTokenHandler().WriteToken(token));}return c;}
+  public HttpClient Client(bool authenticated=true,Guid? user=null,string? application=null)
+  {
+   var c=CreateClient();
+   if(authenticated)
+   {
+    var actor=user??User;var app=application??(actor==Admin?"Admin":"Tech");
+    var claims=new List<Claim>{new("sub",actor.ToString()),new("sid",Guid.NewGuid().ToString()),new("application",app),new("role",app=="Tech"?"Provider":app=="Admin"?"Admin":"Customer")};
+    if(app=="Tech")claims.Add(new("providerId",Guid.NewGuid().ToString()));
+    var token=new JwtSecurityToken("tests","clients",claims,DateTime.UtcNow.AddSeconds(-1),DateTime.UtcNow.AddMinutes(5),new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Key)),SecurityAlgorithms.HmacSha256));
+    c.DefaultRequestHeaders.Authorization=new("Bearer",new JwtSecurityTokenHandler().WriteToken(token));
+   }
+   return c;
+  }
  }
  private class Session:IIdentitySessionValidator{public bool Active=true;public Task<bool> IsActiveAsync(string t,bool h,CancellationToken ct)=>Task.FromResult(Active);}
  private class AdminClient(Guid admin):IProviderWorkflowClient

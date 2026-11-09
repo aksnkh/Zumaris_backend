@@ -34,6 +34,12 @@ public sealed class ProviderAccountRepository(IConfiguration configuration) : IP
     {
         await using var c=await Open(ct);
         await using var tx=await c.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct);
+        var account=await ReadAccountAsync(c,tx,id,ct);
+        await tx.CommitAsync(ct);
+        return account;
+    }
+    private static async Task<ProviderAccount?> ReadAccountAsync(MySqlConnection c,MySqlTransaction tx,Guid id,CancellationToken ct)
+    {
         await using var cmd=Cmd(c,tx,$"""
           SELECT p.*,COALESCE(o.revision,1) AS revision,o.review_reason,
           ({ProviderDocumentEligibility.Predicate}) AS documents_verified,
@@ -54,7 +60,6 @@ public sealed class ProviderAccountRepository(IConfiguration configuration) : IP
         var documents=new List<ProviderDocument>();
         await using(var q=Cmd(c,tx,"SELECT id,kind,file_name,content_type,created_at FROM provider_documents WHERE provider_id=@id ORDER BY created_at,id",("@id",id.ToString())))
         await using(var r=await q.ExecuteReaderAsync(ct))while(await r.ReadAsync(ct))documents.Add(new(r.GetGuid(0),r.GetString(1),r.GetString(2),r.GetString(3),DateTime.SpecifyKind(r.GetDateTime(4),DateTimeKind.Utc)));
-        await tx.CommitAsync(ct);
         var status=verified?"Approved":pending?"PendingReview":actionRequired?"Rejected":"Draft";
         return new(id,user,name,active,verified&&status=="Approved",status,revision,reason,categories,documents);
     }
@@ -124,11 +129,27 @@ public sealed class ProviderAccountRepository(IConfiguration configuration) : IP
     public async Task<ProviderPage> PendingAsync(int page,int size,CancellationToken ct)
     {
         await using var c=await Open(ct);
-        const string filter="is_verified=0 AND EXISTS(SELECT 1 FROM provider_documents d WHERE d.provider_id=p.id)";
-        await using var count=Cmd(c,null,"SELECT COUNT(*) FROM providers p WHERE "+filter);var total=Convert.ToInt64(await count.ExecuteScalarAsync(ct));
-        await using var cmd=Cmd(c,null,"SELECT id FROM providers p WHERE "+filter+" ORDER BY id LIMIT @size OFFSET @offset",("@size",size),("@offset",(long)(page-1)*size));
-        var ids=new List<Guid>();await using(var r=await cmd.ExecuteReaderAsync(ct))while(await r.ReadAsync(ct))ids.Add(r.GetGuid(0));
-        var list=new List<ProviderAccount>();foreach(var id in ids){var item=await ByIdAsync(id,ct);if(item is not null)list.Add(item);}
+        await using var tx=await c.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct);
+        // Review the current submitted upload, even when a previous verified file is still active.
+        // EXISTS gives one row per provider and excludes drafts and superseded submissions.
+        const string filter="""
+            EXISTS(SELECT 1 FROM provider_verification_slots s
+                JOIN provider_document_reviews r ON r.document_id=s.current_document_id
+                    AND r.provider_id=s.provider_id AND r.document_type=s.document_type
+                WHERE s.provider_id=p.id AND r.status='InReview')
+            """;
+        await using var count=Cmd(c,tx,"SELECT COUNT(*) FROM providers p WHERE "+filter);
+        var total=Convert.ToInt64(await count.ExecuteScalarAsync(ct));
+        await using var cmd=Cmd(c,tx,"SELECT p.id FROM providers p WHERE "+filter+" ORDER BY p.id LIMIT @size OFFSET @offset",("@size",size),("@offset",(long)(page-1)*size));
+        var ids=new List<Guid>();
+        await using(var reader=await cmd.ExecuteReaderAsync(ct))while(await reader.ReadAsync(ct))ids.Add(reader.GetGuid(0));
+        var list=new List<ProviderAccount>();
+        foreach(var id in ids)
+        {
+            var item=await ReadAccountAsync(c,tx,id,ct);
+            if(item is not null)list.Add(item);
+        }
+        await tx.CommitAsync(ct);
         return new(list,page,size,total);
     }
     public Task<ProviderAccount> ReviewAsync(Guid admin,Guid id,ReviewProviderRequest input,CancellationToken ct) =>

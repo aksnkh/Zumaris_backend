@@ -86,8 +86,11 @@ public sealed class ProviderAccountController(IProviderAccountRepository reposit
 public sealed class ProviderAdministrationController(IProviderAccountRepository repository):ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(typeof(ProviderPage),200)]
     public async Task<IActionResult> Pending([FromQuery,Range(1,int.MaxValue)]int pageNumber=1,[FromQuery,Range(1,100)]int pageSize=20,CancellationToken ct=default)=>Ok(await repository.PendingAsync(pageNumber,pageSize,ct));
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(ProviderAccount),200)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> Details(Guid id,CancellationToken ct)
     {var item=await repository.ByIdAsync(id,ct);return item is null?NotFound(new{message="Provider profile not found."}):Ok(item);}
     [HttpGet("{id:guid}/documents/{documentId:guid}")]

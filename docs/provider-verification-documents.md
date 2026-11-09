@@ -25,6 +25,8 @@ Upload and submit are separate so View & upload can preview a draft before submi
 
 ## Administrator APIs
 
+See [admin profile and review integration](admin-provider-review-api.md) for the complete existing endpoint map, response contracts and frontend sequence. The technician review queue now follows current InReview files, including submitted replacements for already verified profiles.
+
 All paths below also use the `/provider` Gateway prefix. Administrator access is checked server-side against Identity; it is not granted by a request field or specialty declaration.
 
 | Method | Provider-local path | Purpose |

@@ -21,6 +21,7 @@ public class AdminAccessTests
   var login=await c.PostAsJsonAsync("/api/auth/login",new{userName="alice",password="Password-for-tests-1", application = "App"});Assert.Equal(HttpStatusCode.OK,login.StatusCode);
   using var json=JsonDocument.Parse(await login.Content.ReadAsStringAsync());c.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",json.RootElement.GetProperty("payload").GetProperty("accessToken").GetString());
   Assert.Equal(HttpStatusCode.Forbidden,(await c.GetAsync("/api/auth/session/admin-access")).StatusCode);
+  source.Accounts.Seed("Admin");
   admins.Allowed=true;
   var adminLogin=await c.PostAsJsonAsync("/api/auth/login",new{userName="alice",password="Password-for-tests-1",application="Admin"});Assert.Equal(HttpStatusCode.OK,adminLogin.StatusCode);
   using var adminJson=JsonDocument.Parse(await adminLogin.Content.ReadAsStringAsync());c.DefaultRequestHeaders.Authorization=new("Bearer",adminJson.RootElement.GetProperty("payload").GetProperty("accessToken").GetString());

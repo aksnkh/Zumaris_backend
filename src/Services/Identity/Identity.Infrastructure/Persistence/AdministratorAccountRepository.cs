@@ -32,7 +32,7 @@ public sealed class AdministratorAccountRepository(IConfiguration configuration)
         {
             if (completed) throw new SignupException(409, "Administrator bootstrap has already been completed.");
             // Even disabled/manual memberships close the first-administrator path. This is not account recovery.
-            await using var existing = Command(connection, tx, "SELECT user_id FROM platform_administrators LIMIT 1 FOR UPDATE");
+            await using var existing = Command(connection, tx, "SELECT id FROM admin_accounts LIMIT 1 FOR UPDATE");
             if (await existing.ExecuteScalarAsync(ct) is not null)
                 throw new SignupException(409, "An administrator already exists. Ask an authorized administrator to create this account.");
         }
@@ -40,17 +40,13 @@ public sealed class AdministratorAccountRepository(IConfiguration configuration)
         {
             // Recheck membership and the real account inside the write transaction, not just in the API filter.
             await using var actor = Command(connection, tx, """
-                SELECT a.user_id FROM platform_administrators a JOIN identity_users u ON u.id=a.user_id
-                WHERE a.user_id=@actor AND a.is_active=1 AND u.is_active=1 AND u.is_deleted=0 FOR UPDATE
+                SELECT id FROM admin_accounts WHERE id=@actor AND is_active=1 AND is_deleted=0 FOR UPDATE
                 """, ("@actor", actorUserId.Value.ToString()));
             if (await actor.ExecuteScalarAsync(ct) is null)
                 throw new SignupException(403, "Active administrator access is required to create an administrator account.");
         }
 
-        var user = await SignupRepository.InsertAsync(connection, tx, account, ct, now);
-        await using (var membership = Command(connection, tx,
-            "INSERT INTO platform_administrators(user_id,is_active,granted_at)VALUES(@user,1,@now)",
-            ("@user", user.Id.ToString()), ("@now", now))) await membership.ExecuteNonQueryAsync(ct);
+        var user = await AccountSql.InsertAsync(connection, tx, "Admin", account, ct, now);
         await using (var audit = Command(connection, tx, """
             INSERT INTO identity_administrator_account_creations(user_id,created_by_user_id,source,created_at)
             VALUES(@user,@actor,@source,@now)

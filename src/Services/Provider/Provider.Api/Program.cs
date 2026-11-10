@@ -142,7 +142,7 @@ builder.Services.AddAuthentication().AddJwtBearer("IdentityLoginAccess", options
         OnTokenValidated = context =>
         {
             var token = context.SecurityToken;
-            if (context.Principal?.FindFirst("scope")?.Value != "provider-login-access" ||
+            if (context.Principal?.FindFirst("scope")?.Value is not ("provider-login-access" or "provider-enrollment") ||
                 !Guid.TryParse(context.Principal.FindFirst("sub")?.Value, out var user) || user == Guid.Empty ||
                 token.ValidTo - token.ValidFrom > TimeSpan.FromSeconds(30)) context.Fail("Invalid login access credential.");
             return Task.CompletedTask;
@@ -156,6 +156,7 @@ builder.Services.AddAuthentication().AddJwtBearer("IdentityLoginAccess", options
 });
 builder.Services.AddAuthorization(options => options.AddPolicy("IdentityLoginAccess", policy =>
     policy.AddAuthenticationSchemes("IdentityLoginAccess").RequireAuthenticatedUser().RequireClaim("scope", "provider-login-access")));
+builder.Services.AddAuthorization(options=>options.AddPolicy("IdentityProviderEnrollment",policy=>policy.AddAuthenticationSchemes("IdentityLoginAccess").RequireAuthenticatedUser().RequireClaim("scope","provider-enrollment").RequireClaim("application","Tech")));
 var app = builder.Build();
 if (Encoding.UTF8.GetByteCount(app.Configuration["Jwt:Key"] ?? "") < 32 ||
     string.IsNullOrWhiteSpace(app.Configuration["Jwt:Issuer"]) || string.IsNullOrWhiteSpace(app.Configuration["Jwt:Audience"]))

@@ -9,9 +9,9 @@ public sealed class ProfileAdoNetRepository(IConfiguration configuration) : IPro
     private readonly string connectionString = configuration.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("DefaultConnection is required.");
     private const string Select = """
-        SELECT u.id, u.user_name, u.email, p.first_name, p.last_name, p.phone, p.photo_path,
-               p.updated_at
-        FROM identity_users u LEFT JOIN identity_user_profiles p ON p.user_id=u.id
+        SELECT u.id, u.user_name, u.email, u.first_name, u.last_name, u.phone, u.photo_path,
+               u.updated_at
+        FROM identity_account_directory u
         WHERE u.id=@user AND u.is_active=1 AND u.is_deleted=0
         """;
     private static string? Text(MySqlDataReader reader,string name) => reader.IsDBNull(reader.GetOrdinal(name)) ? null : reader.GetString(name);
@@ -34,20 +34,18 @@ public sealed class ProfileAdoNetRepository(IConfiguration configuration) : IPro
     {
         await using var c = new MySqlConnection(connectionString); await c.OpenAsync(ct);
         await using var tx = await c.BeginTransactionAsync(IsolationLevel.ReadCommitted,ct);
-        // Serialize even the first write to a previously absent profile row.
-        await using (var userLock = new MySqlCommand("SELECT id FROM identity_users WHERE id=@user AND is_active=1 AND is_deleted=0 FOR UPDATE",c,tx))
+        string application;
+        await using(var lookup=new MySqlCommand("SELECT application FROM identity_account_directory WHERE id=@user",c,tx))
         {
-            userLock.Parameters.AddWithValue("@user",userId.ToString());
-            if (await userLock.ExecuteScalarAsync(ct) is null) throw new ProfileNotFoundException();
+            lookup.Parameters.AddWithValue("@user",userId.ToString());var value=await lookup.ExecuteScalarAsync(ct);application=value?.ToString()??throw new ProfileNotFoundException();
         }
+        var table=AccountSql.Table(application);
+        await using(var userLock=new MySqlCommand($"SELECT id FROM {table} WHERE id=@user AND is_active=1 AND is_deleted=0 FOR UPDATE",c,tx))
+        {userLock.Parameters.AddWithValue("@user",userId.ToString());if(await userLock.ExecuteScalarAsync(ct)is null)throw new ProfileNotFoundException();}
         var current = await ReadAsync(c,tx,userId,ct) ?? throw new ProfileNotFoundException();
-        await using (var ensure = new MySqlCommand("INSERT INTO identity_user_profiles (user_id) VALUES (@user) ON DUPLICATE KEY UPDATE user_id=user_id",c,tx))
-        {
-            ensure.Parameters.AddWithValue("@user",userId.ToString()); await ensure.ExecuteNonQueryAsync(ct);
-        }
         var sql = photoChange
-            ? "UPDATE identity_user_profiles SET photo_path=@photo,updated_at=@now WHERE user_id=@user"
-            : "UPDATE identity_user_profiles SET first_name=@first,last_name=@last,phone=@phone,updated_at=@now WHERE user_id=@user";
+            ? $"UPDATE {table} SET photo_path=@photo,updated_at=@now WHERE id=@user"
+            : $"UPDATE {table} SET first_name=@first,last_name=@last,phone=@phone,updated_at=@now WHERE id=@user";
         await using (var cmd = new MySqlCommand(sql,c,tx))
         {
             cmd.Parameters.AddWithValue("@user",userId.ToString());

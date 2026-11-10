@@ -31,11 +31,11 @@ public class ApplicationIsolationTests
         Assert.Equal(HttpStatusCode.Forbidden,(await c.SendAsync(new HttpRequestMessage(new(method),path))).StatusCode);
     }
     [Fact]
-    public async Task Tech_can_read_its_documents_while_customer_can_only_begin_provider_signup()
+    public async Task Tech_can_read_its_documents_and_App_cannot_enroll_a_Provider()
     {
         using var f=new Factory();using var tech=f.Client("Tech");using var customer=f.Client("App");
         Assert.Equal(HttpStatusCode.OK,(await tech.GetAsync("/api/providers/me/verification-documents")).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest,(await customer.PostAsJsonAsync("/api/providers/signup",new{acceptTermsAndPrivacy=false})).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,(await customer.PostAsJsonAsync("/api/providers/signup",new{acceptTermsAndPrivacy=false})).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,(await customer.GetAsync("/api/providers/me/verification-documents")).StatusCode);
     }
     [Theory]

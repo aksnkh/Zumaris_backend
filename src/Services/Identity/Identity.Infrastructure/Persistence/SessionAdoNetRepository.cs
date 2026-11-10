@@ -113,7 +113,7 @@ public sealed class SessionAdoNetRepository(IConfiguration configuration) : ISes
     public async Task<AuthSession?> FindByIdAsync(Guid sessionId, Guid userId, CancellationToken ct = default)
     {
         await using var connection = await OpenAsync(ct);
-        await using var command = Command(connection, "SELECT * FROM zumaris_auth_sessions WHERE id=@id AND user_id=@user AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6)", null, ("@id",sessionId.ToString()), ("@user",userId.ToString()));
+        await using var command = Command(connection, "SELECT s.* FROM zumaris_auth_sessions s JOIN identity_account_directory u ON u.id=s.user_id AND u.application=s.application WHERE s.id=@id AND s.user_id=@user AND s.revoked_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6) AND u.is_active=1 AND u.is_deleted=0", null, ("@id",sessionId.ToString()), ("@user",userId.ToString()));
         await using var reader = await command.ExecuteReaderAsync(ct);
         return await reader.ReadAsync(ct) ? ReadSession(reader) : null;
     }
@@ -121,8 +121,8 @@ public sealed class SessionAdoNetRepository(IConfiguration configuration) : ISes
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = Command(connection, """
-            SELECT 1 FROM zumaris_auth_sessions
-            WHERE id = @id AND user_id = @user AND revoked_at IS NULL AND expires_at > UTC_TIMESTAMP(6)
+            SELECT 1 FROM zumaris_auth_sessions s JOIN identity_account_directory u ON u.id=s.user_id AND u.application=s.application
+            WHERE s.id=@id AND s.user_id=@user AND s.revoked_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6) AND u.is_active=1 AND u.is_deleted=0
             """, null, ("@id", sessionId.ToString()), ("@user", userId.ToString()));
         return await command.ExecuteScalarAsync(cancellationToken) is not null;
     }

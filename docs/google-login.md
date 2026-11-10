@@ -1,3 +1,5 @@
+> Current architecture: independent App/Tech/Admin account tables and route-scoped register/login/refresh/logout. See [independent accounts](independent-accounts.md). Database setup and shared-user examples below are historical: use reset script 008, never apply scripts 001–007 afterward. Google/BFF requests still select an application; Tech/Admin require an existing account and explicit link.
+
 <div dir="rtl" align="right">
 
 > Application-scoped authentication update: login now requires `application` (`App`, `Tech`, `Admin`). Refresh/logout use application-specific cookies and a mandatory application selector. See [current login, signup and API isolation contract](application-authentication.md); it supersedes older login/refresh examples below.

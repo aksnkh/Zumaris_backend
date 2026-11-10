@@ -13,8 +13,8 @@ public interface IGoogleIdentityValidator
 }
 public interface IExternalLoginRepository
 {
-    Task<User> FindOrCreateGoogleAsync(VerifiedGoogleIdentity identity, CancellationToken cancellationToken);
-    Task LinkGoogleAsync(Guid userId, VerifiedGoogleIdentity identity, CancellationToken cancellationToken);
+    Task<User> FindOrCreateGoogleAsync(VerifiedGoogleIdentity identity, CancellationToken cancellationToken, string application = "App");
+    Task LinkGoogleAsync(Guid userId, VerifiedGoogleIdentity identity, CancellationToken cancellationToken, string application = "App");
 }
 public sealed class ExternalLoginConflictException() : Exception("An account already exists. Sign in to the existing account and explicitly link Google.");
 public sealed class GoogleLoginUnavailableException() : Exception("Google sign-in is not configured or temporarily unavailable.");
@@ -43,13 +43,14 @@ public sealed class GoogleAuthService(IGoogleIdentityValidator validator, IExter
     public async Task<(AuthResponse Response, string RefreshToken)> LoginAsync(string idToken, CancellationToken ct, string application = "App")
     {
         var identity = await validator.ValidateAsync(idToken, ct);
-        var user = await users.FindOrCreateGoogleAsync(identity, ct);
+        var user = await users.FindOrCreateGoogleAsync(identity, ct, application);
+        if(!user.IsActive)throw new UnauthorizedAccessException("The account is unavailable.");
         var grant = await access.ResolveAsync(user.Id, application, ct);
         return await issuer.IssueAsync(user, ct, grant.Application, grant.ProviderId);
     }
-    public async Task LinkAsync(Guid userId, string idToken, CancellationToken ct)
+    public async Task LinkAsync(Guid userId, string idToken, CancellationToken ct, string application = "App")
     {
         var identity = await validator.ValidateAsync(idToken, ct);
-        await users.LinkGoogleAsync(userId, identity, ct);
+        await users.LinkGoogleAsync(userId, identity, ct, application);
     }
 }

@@ -1,3 +1,5 @@
+-- HISTORICAL SHARED-ACCOUNT SCHEMA. Superseded by 008_reset_independent_accounts.sql.
+-- DO NOT APPLY this historical script after the independent-account reset.
 -- Run manually against the existing Identity database before deploying this code.
 -- MySQL 8.0+, InnoDB. No USE statement: select the intended database yourself.
 -- These names must be unused on the first run. IF NOT EXISTS makes an unchanged rerun safe;

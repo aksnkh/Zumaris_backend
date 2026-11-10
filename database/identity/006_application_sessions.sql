@@ -1,3 +1,5 @@
+-- HISTORICAL SHARED-ACCOUNT SCHEMA. Superseded by 008_reset_independent_accounts.sql.
+-- DO NOT APPLY this historical script after the independent-account reset.
 -- Run manually in zumaris_identity after 001..005, before deploying application-scoped authentication.
 -- MySQL 8.0+. Rerunnable; never infer a role for an existing session.
 -- Old sessions are revoked intentionally. Accounts/passwords/provider data are not changed.

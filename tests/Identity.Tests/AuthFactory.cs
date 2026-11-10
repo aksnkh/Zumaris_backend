@@ -20,6 +20,8 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
     public const string TestKey = "test-only-signing-key-never-use-in-deployment-123456789";
     public FakeApplicationProviders ApplicationProviders { get; } = new();
     public FakeApplicationAdmins ApplicationAdmins { get; } = new();
+    public MemoryApplicationAccounts Accounts { get; }
+    public FakeEnrollment Enrollment { get; }
     public MemoryUsers Users { get; } = new();
     public MemorySessions Sessions { get; } = new();
     public FakeGoogleValidator Google { get; } = new();
@@ -27,7 +29,7 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
     public MemoryProfiles Profiles { get; }
     public string ProfilePhotoRoot { get; } = Path.Combine(Path.GetTempPath(),"zumaris-profile-tests-"+Guid.NewGuid().ToString("N"));
     public MemorySignup Signups {get;}
-    public AuthFactory() { External = new FakeExternalLogins(Users); Profiles = new MemoryProfiles(Users); Signups=new MemorySignup(Users,Profiles); }
+    public AuthFactory() { External = new FakeExternalLogins(Users); Profiles = new MemoryProfiles(Users); Signups=new MemorySignup(Users,Profiles); Accounts=new(Users,Profiles); Enrollment=new(ApplicationProviders); }
     public const string BffKey = "test-only-bff-key-never-deploy-this-123456789";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -41,6 +43,8 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_,config) => config.AddInMemoryCollection(new Dictionary<string,string?> { ["ProfilePhotos:RootPath"]=ProfilePhotoRoot }));
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<IApplicationAccountRepository>();services.AddSingleton<IApplicationAccountRepository>(Accounts);
+            services.RemoveAll<IProviderEnrollmentClient>();services.AddSingleton<IProviderEnrollmentClient>(Enrollment);
             services.RemoveAll<IProviderLoginAccessClient>();services.AddSingleton<IProviderLoginAccessClient>(ApplicationProviders);
             services.RemoveAll<IPlatformAdminRepository>();services.AddSingleton<IPlatformAdminRepository>(ApplicationAdmins);
             services.RemoveAll<ISignupRepository>();services.AddSingleton<ISignupRepository>(Signups);
@@ -81,7 +85,7 @@ public sealed class MemoryUsers : IAuthRepository
         PasswordHash = new PasswordHasher().Hash("Password-for-tests-1")
     };
     public Task<User?> GetUserByUsernameAsync(string userName, CancellationToken cancellationToken = default) =>
-        Task.FromResult(userName == User.UserName ? User : GoogleUsers.SingleOrDefault(u => u.UserName == userName));
+        Task.FromResult(userName == User.UserName ? User : GoogleUsers.SingleOrDefault(u => u.Application=="App" && u.UserName == userName));
     public Task<bool> RegisterAsync(string username, string passwordHash, string email) => Task.FromResult(true);
 }
 
@@ -163,26 +167,27 @@ public sealed class FakeExternalLogins(MemoryUsers users) : IExternalLoginReposi
 {
     private readonly Dictionary<string, User> links = [];
     private readonly object gate = new();
-    public Task<User> FindOrCreateGoogleAsync(VerifiedGoogleIdentity identity, CancellationToken ct)
+    public Task<User> FindOrCreateGoogleAsync(VerifiedGoogleIdentity identity, CancellationToken ct, string application="App")
     {
         lock (gate)
         {
-            if (links.TryGetValue(identity.Subject, out var existing)) return Task.FromResult(existing);
-            if (new[] { users.User }.Concat(users.GoogleUsers).Any(u => string.Equals(u.Email, identity.Email, StringComparison.OrdinalIgnoreCase)))
+            if (links.TryGetValue(application+":"+identity.Subject, out var existing)) return Task.FromResult(existing);
+            if(application!="App")throw new ApplicationLoginException(403,"Register and link an account in this application first.");
+            if (new[] { users.User }.Concat(users.GoogleUsers).Where(u=>u.Application==application).Any(u => string.Equals(u.Email, identity.Email, StringComparison.OrdinalIgnoreCase)))
                 throw new ExternalLoginConflictException();
             var user = new User { Id = Guid.NewGuid(), UserName = "google_" + Guid.NewGuid().ToString("N"), Email = identity.Email, PasswordHash = null, IsActive = true };
-            users.GoogleUsers.Add(user); links.Add(identity.Subject, user); return Task.FromResult(user);
+            users.GoogleUsers.Add(user); links.Add(application+":"+identity.Subject, user); return Task.FromResult(user);
         }
     }
-    public Task LinkGoogleAsync(Guid userId, VerifiedGoogleIdentity identity, CancellationToken ct)
+    public Task LinkGoogleAsync(Guid userId, VerifiedGoogleIdentity identity, CancellationToken ct, string application="App")
     {
         lock (gate)
         {
             var user = new[] { users.User }.Concat(users.GoogleUsers).Single(u => u.Id == userId);
-            if (!user.IsActive) throw new UnauthorizedAccessException();
+            if (!user.IsActive||user.Application!=application) throw new UnauthorizedAccessException();
             if (!string.Equals(user.Email, identity.Email, StringComparison.OrdinalIgnoreCase) ||
-                (links.TryGetValue(identity.Subject, out var existing) && existing.Id != userId)) throw new ExternalLoginConflictException();
-            links[identity.Subject] = user; return Task.CompletedTask;
+                (links.TryGetValue(application+":"+identity.Subject, out var existing) && existing.Id != userId)) throw new ExternalLoginConflictException();
+            links[application+":"+identity.Subject] = user; return Task.CompletedTask;
         }
     }
 }
@@ -198,7 +203,7 @@ public sealed class MemorySignup(MemoryUsers users,MemoryProfiles profiles):ISig
   await profiles.UpdateAsync(user.Id,new(input.FirstName,input.LastName,input.Phone),DateTime.UtcNow,ct);return user;
  }
  public Task<User?> FindByEmailAsync(string email,CancellationToken ct)
- {var matches=users.GoogleUsers.Append(users.User).Where(u=>string.Equals(u.Email,email.Trim(),StringComparison.OrdinalIgnoreCase)).Take(2).ToArray();return Task.FromResult(matches.Length==1?matches[0]:null);}
+ {var matches=users.GoogleUsers.Append(users.User).Where(u=>u.Application=="App").Where(u=>string.Equals(u.Email,email.Trim(),StringComparison.OrdinalIgnoreCase)).Take(2).ToArray();return Task.FromResult(matches.Length==1?matches[0]:null);}
 }
 
 public sealed class FakeApplicationProviders : IProviderLoginAccessClient
@@ -215,4 +220,36 @@ public sealed class FakeApplicationAdmins : IPlatformAdminRepository
 {
     public HashSet<Guid> Users { get; } = new();
     public Task<bool> IsAdminAsync(Guid userId,CancellationToken ct)=>Task.FromResult(Users.Contains(userId));
+}
+
+public sealed class MemoryApplicationAccounts(MemoryUsers users,MemoryProfiles profiles):IApplicationAccountRepository
+{
+ private readonly SemaphoreSlim gate=new(1,1);
+ public IEnumerable<User> All=>users.GoogleUsers.Append(users.User);
+ public User Seed(string app,string name="alice",string email="alice@example.test")
+ {
+  var existing=All.FirstOrDefault(x=>x.Application==app&&x.UserName==name);if(existing is not null)return existing;
+  var user=new User{Id=Guid.NewGuid(),UserName=name,Email=email,PasswordHash=users.User.PasswordHash,Application=app,IsActive=true,FirstName="Test",LastName="Account",Phone="+447700900123",ProviderEnrollmentRequestedAtUtc=app=="Tech"?DateTime.UtcNow:null};
+  users.GoogleUsers.Add(user);return user;
+ }
+ public Task<User?> FindAsync(string app,string login,CancellationToken ct)=>Task.FromResult(All.SingleOrDefault(u=>u.Application==app&&(u.UserName==login||u.Email.Equals(login.Trim(),StringComparison.OrdinalIgnoreCase))));
+ public Task<User?> FindByIdAsync(string app,Guid id,CancellationToken ct)=>Task.FromResult(All.SingleOrDefault(u=>u.Application==app&&u.Id==id));
+ public async Task<User> CreateAsync(string app,SignupAccount account,CancellationToken ct)
+ {
+  await gate.WaitAsync(ct);try
+  {
+   if(All.Any(u=>u.Application==app&&u.Email.Equals(account.Email,StringComparison.OrdinalIgnoreCase)))throw new SignupException(409,"An account already exists in this application.");
+   var user=new User{Id=Guid.NewGuid(),UserName="user_"+Guid.NewGuid().ToString("N"),Email=account.Email,PasswordHash=account.PasswordHash,Application=app,IsActive=true,FirstName=account.FirstName,LastName=account.LastName,Phone=account.Phone,ProviderEnrollmentRequestedAtUtc=app=="Tech"?DateTime.UtcNow:null};
+   users.GoogleUsers.Add(user);await profiles.UpdateAsync(user.Id,new(account.FirstName,account.LastName,account.Phone),DateTime.UtcNow,ct);return user;
+  }finally{gate.Release();}
+ }
+}
+public sealed class FakeEnrollment(FakeApplicationProviders providers):IProviderEnrollmentClient
+{
+ public int Calls;public bool Unavailable;
+ public Task<ProviderLoginAccess> EnrollAsync(User user,CancellationToken ct)
+ {
+  Calls++;if(Unavailable)throw new ApplicationLoginException(503,"Provider enrollment is temporarily unavailable.");
+  var access=new ProviderLoginAccess(user.Id,Guid.NewGuid(),true,true);providers.Items[user.Id]=access;return Task.FromResult(access);
+ }
 }

@@ -1,3 +1,5 @@
+-- HISTORICAL SHARED-ACCOUNT SCHEMA. Superseded by 008_reset_independent_accounts.sql.
+-- DO NOT APPLY this historical script after the independent-account reset.
 -- Run MANUALLY in zumaris_identity. password_hash ALTER was already applied by the owner.
 -- This file only creates the external-login mapping table. No data or existing passwords are modified.
 USE zumaris_identity;

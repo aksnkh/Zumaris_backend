@@ -1,6 +1,6 @@
 # Technician verification documents
 
-Implemented in Provider only. These are the final user-confirmed rules, superseding the earlier five-document design. Identity continues to own authentication and personal account details. No cross-service SQL or project references were added.
+Document verification is implemented in Provider. Account registration/authentication now use separate App/Tech/Admin tables in Identity; see [independent accounts](independent-accounts.md). These are the final user-confirmed rules, superseding the earlier five-document design. Identity continues to own authentication and personal account details. No cross-service SQL or project references were added.
 
 ## Requirements
 

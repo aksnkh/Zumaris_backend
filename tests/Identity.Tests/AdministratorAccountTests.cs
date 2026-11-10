@@ -50,25 +50,25 @@ public class AdministratorAccountTests
     public async Task Non_admin_tokens_cannot_create_an_administrator(string application)
     {
         using var f=new Fixture();using var c=f.Client();
-        if(application=="Tech")f.Source.ApplicationProviders.Items[f.Source.Users.User.Id]=new(f.Source.Users.User.Id,Guid.NewGuid(),true,true);
+        if(application=="Tech"){var tech=f.Source.Accounts.Seed("Tech");f.Source.ApplicationProviders.Items[tech.Id]=new(tech.Id,Guid.NewGuid(),true,true);}
         await f.Login(c,application);await Read(await c.PostAsJsonAsync("/api/admin/accounts",Input()),HttpStatusCode.Forbidden);Assert.Equal(0,f.Repository.Calls);
     }
     [Fact]
     public async Task Creation_requires_authentication_and_current_administrator_membership()
     {
         using var f=new Fixture();using var c=f.Client();await Read(await c.PostAsJsonAsync("/api/admin/accounts",Input()),HttpStatusCode.Unauthorized);
-        f.Source.ApplicationAdmins.Users.Add(f.Source.Users.User.Id);await f.Login(c,"Admin");f.Source.ApplicationAdmins.Users.Clear();
+        f.Source.ApplicationAdmins.Users.Add(f.Source.Accounts.Seed("Admin").Id);await f.Login(c,"Admin");f.Source.ApplicationAdmins.Users.Clear();
         await Read(await c.PostAsJsonAsync("/api/admin/accounts",Input()),HttpStatusCode.Forbidden);Assert.Equal(0,f.Repository.Calls);
     }
     [Fact]
     public async Task Authorized_creation_does_not_replace_the_creators_session_or_promote_existing_email()
     {
-        using var f=new Fixture();using var c=f.Client();var actor=f.Source.Users.User.Id;f.Source.ApplicationAdmins.Users.Add(actor);await f.Login(c,"Admin");
+        using var f=new Fixture();using var c=f.Client();var actor=f.Source.Accounts.Seed("Admin").Id;f.Source.ApplicationAdmins.Users.Add(actor);await f.Login(c,"Admin");
         var session=Assert.Single(f.Source.Sessions.Items).Key;
         var response=await c.PostAsJsonAsync("/api/admin/accounts",Input());var payload=(await Read(response,HttpStatusCode.Created)).GetProperty("payload");
         Assert.Equal(actor,payload.GetProperty("createdByUserId").GetGuid());Assert.False(response.Headers.Contains("Set-Cookie"));Assert.Equal(session,Assert.Single(f.Source.Sessions.Items).Key);
         await Read(await c.PostAsJsonAsync("/api/admin/accounts",Input()),HttpStatusCode.Conflict);
-        Assert.Single(f.Source.Users.GoogleUsers);Assert.Equal(2,f.Source.ApplicationAdmins.Users.Count);
+        Assert.Equal(2,f.Source.Users.GoogleUsers.Count);Assert.Equal(2,f.Source.ApplicationAdmins.Users.Count);
     }
     [Fact]
     public async Task Csrf_unknown_fields_and_invalid_account_data_are_rejected_before_creation()
@@ -84,8 +84,8 @@ public class AdministratorAccountTests
     {
         using var f=new Fixture();using var c=f.Client(key:true);f.Repository.Fail=true;
         var body=await Read(await c.PostAsJsonAsync("/api/admin/bootstrap",Input()),HttpStatusCode.InternalServerError);Assert.DoesNotContain("Private database",body.ToString());
-        f.Repository.Fail=false;f.Source.ApplicationAdmins.Users.Add(f.Source.Users.User.Id);
-        await Read(await c.PostAsJsonAsync("/api/admin/bootstrap",Input()),HttpStatusCode.Conflict);Assert.Empty(f.Source.Users.GoogleUsers);
+        f.Repository.Fail=false;f.Source.ApplicationAdmins.Users.Add(f.Source.Accounts.Seed("Admin").Id);
+        await Read(await c.PostAsJsonAsync("/api/admin/bootstrap",Input()),HttpStatusCode.Conflict);Assert.Single(f.Source.Users.GoogleUsers);
     }
     [Fact]
     public async Task Swagger_documents_both_new_endpoints_and_the_shared_request_contract()
@@ -128,7 +128,7 @@ public class AdministratorAccountTests
                 if(Fail)throw new InvalidOperationException("Private database error: do not disclose.");
                 if(actor is null&&(Consumed||source.ApplicationAdmins.Users.Count>0))throw new SignupException(409,"Administrator bootstrap has already been completed.");
                 if(actor.HasValue&&!source.ApplicationAdmins.Users.Contains(actor.Value))throw new SignupException(403,"Active administrator access is required.");
-                var user=await source.Signups.CreateAsync(input,ct);source.ApplicationAdmins.Users.Add(user.Id);Consumed=true;
+                var user=await source.Accounts.CreateAsync("Admin",input,ct);source.ApplicationAdmins.Users.Add(user.Id);Consumed=true;
                 return new(user.Id,user.UserName,user.Email,input.FirstName,input.LastName,input.Phone,"Admin",now,actor);
             }
             finally{gate.Release();}

@@ -11,13 +11,15 @@ public sealed class ApplicationLoginException(int status, string message) : Exce
 {
     public int Status { get; } = status;
 }
-public sealed class ApplicationLoginAccess(IProviderLoginAccessClient providers, IPlatformAdminRepository administrators)
+public sealed class ApplicationLoginAccess(IProviderLoginAccessClient providers, IPlatformAdminRepository administrators, IApplicationAccountRepository accounts, IProviderEnrollmentClient enrollment)
 {
     public async Task<ApplicationGrant> ResolveAsync(Guid userId, string? application, CancellationToken ct)
     {
         if (application is not ("App" or "Tech" or "Admin"))
             throw new ApplicationLoginException(400, "Application must be App, Tech or Admin.");
-        if (application == "App") return new(application, null); // Every registered Identity account is a customer account.
+        var account=await accounts.FindByIdAsync(application,userId,ct);
+        if(account is null||!account.IsActive)throw new ApplicationLoginException(403,"An active account in this application is required.");
+        if (application == "App") return new(application, null);
         if (application == "Admin")
         {
             if (!await administrators.IsAdminAsync(userId, ct))
@@ -25,6 +27,11 @@ public sealed class ApplicationLoginAccess(IProviderLoginAccessClient providers,
             return new(application, null);
         }
         var provider = await providers.GetAsync(userId, ct);
+        if(provider is null||!provider.HasSignedUp)
+        {
+            if(account.ProviderEnrollmentRequestedAtUtc is null)throw new ApplicationLoginException(403,"Complete Tech registration and consent before signing in.");
+            provider=await enrollment.EnrollAsync(account,ct);
+        }
         if (provider is null || !provider.IsActive || !provider.HasSignedUp)
             throw new ApplicationLoginException(403, "Complete provider signup with your existing account before signing in to Tech.");
         if (provider.UserId != userId || provider.ProviderId == Guid.Empty)

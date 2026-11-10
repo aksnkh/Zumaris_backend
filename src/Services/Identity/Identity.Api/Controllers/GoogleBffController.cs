@@ -69,7 +69,7 @@ public sealed class GoogleBffController(GoogleAuthService google, IAuthService a
     public async Task<IActionResult> Link(GoogleLoginRequest request,
         [FromHeader(Name = "X-Zumaris-Bff-Key"), Required] string bffKey, CancellationToken ct)
     {
-        await google.LinkAsync(Guid.Parse(User.FindFirst("sub")!.Value), request.IdToken, ct);
+        await google.LinkAsync(Guid.Parse(User.FindFirst("sub")!.Value), request.IdToken, ct, User.FindFirst("application")!.Value);
         return NoContent();
     }
     [HttpPost("bff/refresh")]

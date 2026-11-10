@@ -12,6 +12,7 @@ public sealed class JwtTokenService(JwtSettings settings) : ITokenService
 {
     public IssuedAccessToken CreateAccessToken(User user, Guid sessionId, DateTime sessionExpiresAtUtc, string application = "App", Guid? providerId = null)
     {
+        if(user.Application!=application)throw new InvalidOperationException("An account cannot issue tokens for another application.");
         var now = DateTime.UtcNow;
         var expires = new[] { now.AddMinutes(settings.AccessTokenExpirationMinutes), sessionExpiresAtUtc }.Min();
         if (application is not ("App" or "Tech" or "Admin") || application == "Tech" && (!providerId.HasValue || providerId == Guid.Empty))

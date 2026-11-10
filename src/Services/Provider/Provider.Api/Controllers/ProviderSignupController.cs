@@ -19,7 +19,7 @@ public sealed class ProviderSignupExceptionFilter(ILogger<ProviderSignupExceptio
 [ResponseCache(NoStore=true,Location=ResponseCacheLocation.None)]
 [RequestSizeLimit(4096)]
 [Route("api/providers/signup")]
-[ApplicationAccess("App", "Tech")]
+[ApplicationAccess("Tech")]
 public sealed class ProviderSignupController(ProviderSignupService signup,IConfiguration configuration):ControllerBase
 {
  [HttpPost]

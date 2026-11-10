@@ -1,3 +1,5 @@
+-- HISTORICAL SHARED-ACCOUNT SCHEMA. Superseded by 008_reset_independent_accounts.sql.
+-- DO NOT APPLY this historical script after the independent-account reset.
 -- Run MANUALLY in Identity after 001..006, using a migration/admin account (MySQL 8.0.16+).
 -- Does not create any account, grant a role, reset passwords or reopen completed bootstrap.
 USE zumaris_identity;

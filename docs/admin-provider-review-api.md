@@ -5,7 +5,7 @@ The requested capabilities already have endpoints in Identity, Provider and Serv
 ## Authentication
 
 ```http
-POST https://api.zumaris.com/identity/api/auth/login
+POST https://api.zumaris.com/identity/api/admin/login
 Content-Type: application/json
 X-Zumaris-CSRF: 1
 ```
@@ -13,12 +13,11 @@ X-Zumaris-CSRF: 1
 ```json
 {
   "userName": "admin@example.com",
-  "password": "your-password",
-  "application": "Admin"
+  "password": "your-password"
 }
 ```
 
-Use `payload.accessToken` as `Authorization: Bearer <token>` on every protected request. The Identity account must already have active membership in `platform_administrators`; selecting Admin does not grant that membership. The backend returns 403 when credentials are correct but membership is missing. Existing `/identity/api/auth/refresh?application=Admin` and `/identity/api/auth/logout?application=Admin` handle the application-specific HttpOnly refresh cookie, with `X-Zumaris-CSRF: 1` and browser credentials enabled. Administrator account creation is now available in Identity; see [administrator accounts](administrator-accounts.md). General role-management remains outside this scope. See [application authentication](application-authentication.md).
+Use `payload.accessToken` as `Authorization: Bearer <token>` on every protected request. The separate administrator account must be active in `admin_accounts`; selecting Admin does not grant that membership. The backend returns 403 when credentials are correct but membership is missing. Existing `/identity/api/admin/refresh` and `/identity/api/admin/logout` handle the application-specific HttpOnly refresh cookie, with `X-Zumaris-CSRF: 1` and browser credentials enabled. Administrator account creation is now available in Identity; see [administrator accounts](administrator-accounts.md). General role-management remains outside this scope. See [application authentication](application-authentication.md).
 
 Provider validates both the Admin token context and current administrator access through Identity. App and Tech tokens cannot access these administration routes. Losing administrator membership blocks profile access, downloads, queue access and document decisions even if the old signed token still says Admin.
 
@@ -108,6 +107,6 @@ Header document totals/percentages remain frontend calculations from active `isV
 
 ## Deployment and verification
 
-This request changes only Provider's queue query, profile/list Swagger response metadata and tests. No new database script, Identity login route, role-grant endpoint or duplicated document route is needed. Existing Provider migrations 001–004 and Identity migration 006 remain prerequisites. Publish **Provider** to deploy the queue correction.
+This request changes only Provider's queue query, profile/list Swagger response metadata and tests. No new database script, Identity login route, role-grant endpoint or duplicated document route is needed. Provider schema 001–004 and the current Identity independent-account reset schema remain prerequisites. Publish **Provider** to deploy the queue correction.
 
 Regression coverage exercises draft exclusion, multiple-type deduplication, profile/category retrieval, replacement inclusion despite active verification, superseded-upload exclusion, pagination, old-file download and provider/file mismatch. HTTP checks also verify App/Tech denial and rejection of an Admin-context token without current server membership.

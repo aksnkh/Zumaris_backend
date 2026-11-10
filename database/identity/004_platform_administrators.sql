@@ -1,3 +1,5 @@
+-- HISTORICAL SHARED-ACCOUNT SCHEMA. Superseded by 008_reset_independent_accounts.sql.
+-- DO NOT APPLY this historical script after the independent-account reset.
 -- Run manually as root/admin in the Identity schema; safe unchanged rerun.
 USE zumaris_identity;
 CREATE TABLE IF NOT EXISTS platform_administrators (

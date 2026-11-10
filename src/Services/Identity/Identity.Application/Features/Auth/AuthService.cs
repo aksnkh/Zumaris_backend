@@ -12,8 +12,8 @@ public sealed class AuthService(
     IPasswordHasher passwords,
     ITokenService tokens,
     IUserSessionIssuer issuer,
-    Identity.Application.Features.Signup.ISignupRepository signup,
-    ApplicationLoginAccess access) : IAuthService
+    ApplicationLoginAccess access,
+    IApplicationAccountRepository accounts) : IAuthService
 {
     private static UnauthorizedAccessException InvalidToken() => new("The session is invalid or expired. Please sign in again.");
 
@@ -22,8 +22,8 @@ public sealed class AuthService(
     {
         if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
             throw new UnauthorizedAccessException("Invalid username or password.");
-        var user = await users.GetUserByUsernameAsync(request.UserName.Trim(), cancellationToken);
-        if(user is null && request.UserName.Contains('@'))user=await signup.FindByEmailAsync(request.UserName,cancellationToken);
+        if(request.Application is not ("App" or "Tech" or "Admin"))throw new ApplicationLoginException(400,"Application must be App, Tech or Admin.");
+        var user = await accounts.FindAsync(request.Application,request.UserName,cancellationToken);
         if (user is null || !user.IsActive || string.IsNullOrWhiteSpace(user.PasswordHash) || !passwords.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid username or password.");
 
@@ -43,7 +43,7 @@ public sealed class AuthService(
         if (application is not null && application != session.Application)
             throw new ApplicationLoginException(403, "The refresh token belongs to another application.");
         // Re-read the real user instead of trusting stale/missing data in a token record.
-        var user = await users.GetUserByUsernameAsync(session.UserName, cancellationToken);
+        var user = session.Application is "App" or "Tech" or "Admin" ? await accounts.FindByIdAsync(session.Application,session.UserId,cancellationToken) : null;
         if (user is null || !user.IsActive || user.Id != session.UserId)
         {
             await sessions.RevokeAsync(session.Id, session.UserId, cancellationToken);

@@ -1,3 +1,5 @@
+-- HISTORICAL SHARED-ACCOUNT SCHEMA. Superseded by 008_reset_independent_accounts.sql.
+-- DO NOT APPLY this historical script after the independent-account reset.
 -- Run manually AFTER existing Identity setup and 003_user_profiles.sql.
 -- Existing endpoints/procedures are unchanged. No account is seeded or auto-verified.
 USE zumaris_identity;

@@ -19,12 +19,17 @@ public sealed class ProviderSignupService(IProviderSignupRepository repository,I
  {
   if(!input.AcceptTermsAndPrivacy)throw new ProviderWorkflowException(400,"You must agree to the Provider Terms and Privacy Policy.");
   var identity=await client.IdentityAsync(actor,bearer,ct);
+  var display=ValidateIdentity(actor,identity);
+  if(termsVersion?.Length>100||privacyVersion?.Length>100)throw new ProviderWorkflowException(503,"Provider terms configuration is unavailable.");
+  return await repository.CompleteAsync(actor,display,termsVersion,privacyVersion,ct);
+ }
+ public static string ValidateIdentity(Guid actor,SignupIdentity identity)
+ {
   if(identity.UserId!=actor)throw new ProviderWorkflowException(503,"Identity profile verification is temporarily unavailable.");
   if(string.IsNullOrWhiteSpace(identity.FirstName)||string.IsNullOrWhiteSpace(identity.LastName)||string.IsNullOrWhiteSpace(identity.Phone))
    throw new ProviderWorkflowException(400,"Complete your first name, last name and phone number before registering as a provider.");
   var display=identity.FirstName.Trim()+" "+identity.LastName.Trim();
   if(display.Length>200||display.Any(char.IsControl))throw new ProviderWorkflowException(400,"Your full name must not exceed 200 characters or contain control characters.");
-  if(termsVersion?.Length>100||privacyVersion?.Length>100)throw new ProviderWorkflowException(503,"Provider terms configuration is unavailable.");
-  return await repository.CompleteAsync(actor,display,termsVersion,privacyVersion,ct);
+  return display;
  }
 }

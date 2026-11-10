@@ -13,6 +13,12 @@ public sealed class SignupRepository(IConfiguration configuration):ISignupReposi
  public async Task<User> CreateAsync(SignupAccount account,CancellationToken ct)
  {
   await using var c=await Open(ct);await using var tx=await c.BeginTransactionAsync(IsolationLevel.ReadCommitted,ct);
+  var user=await InsertAsync(c,tx,account,ct);
+  await tx.CommitAsync(ct);
+  return user;
+ }
+ internal static async Task<User> InsertAsync(MySqlConnection c,MySqlTransaction tx,SignupAccount account,CancellationToken ct,DateTime? createdAtUtc=null)
+ {
   // A durable unique normalized-email reservation serializes concurrent signup attempts.
   // Legacy registrations are also checked; no existing account is implicitly linked.
   var id=Guid.NewGuid();var name="user_"+id.ToString("N");
@@ -21,9 +27,8 @@ public sealed class SignupRepository(IConfiguration configuration):ISignupReposi
    await using(var reserve=Cmd(c,tx,"INSERT INTO identity_signup_emails(normalized_email,user_id)VALUES(@email,@id)",("@email",account.Email),("@id",id.ToString())))await reserve.ExecuteNonQueryAsync(ct);
    await using(var check=Cmd(c,tx,"SELECT 1 FROM identity_users WHERE LOWER(TRIM(email))=@email OR user_name=@email LIMIT 1",("@email",account.Email)))
     if(await check.ExecuteScalarAsync(ct) is not null)throw new SignupException(409,"An account already exists. Sign in to continue.");
-   await using(var user=Cmd(c,tx,"INSERT INTO identity_users(id,user_name,email,password_hash,is_active,is_deleted,created_at)VALUES(@id,@name,@email,@password,1,0,UTC_TIMESTAMP(6))",("@id",id.ToString()),("@name",name),("@email",account.Email),("@password",account.PasswordHash)))await user.ExecuteNonQueryAsync(ct);
-   await using(var profile=Cmd(c,tx,"INSERT INTO identity_user_profiles(user_id,first_name,last_name,phone,updated_at)VALUES(@id,@first,@last,@phone,UTC_TIMESTAMP(6))",("@id",id.ToString()),("@first",account.FirstName),("@last",account.LastName),("@phone",account.Phone)))await profile.ExecuteNonQueryAsync(ct);
-   await tx.CommitAsync(ct);
+   await using(var user=Cmd(c,tx,"INSERT INTO identity_users(id,user_name,email,password_hash,is_active,is_deleted,created_at)VALUES(@id,@name,@email,@password,1,0,COALESCE(@created,UTC_TIMESTAMP(6)))",("@id",id.ToString()),("@name",name),("@email",account.Email),("@password",account.PasswordHash),("@created",(object?)createdAtUtc??DBNull.Value)))await user.ExecuteNonQueryAsync(ct);
+   await using(var profile=Cmd(c,tx,"INSERT INTO identity_user_profiles(user_id,first_name,last_name,phone,updated_at)VALUES(@id,@first,@last,@phone,COALESCE(@created,UTC_TIMESTAMP(6)))",("@id",id.ToString()),("@first",account.FirstName),("@last",account.LastName),("@phone",account.Phone),("@created",(object?)createdAtUtc??DBNull.Value)))await profile.ExecuteNonQueryAsync(ct);
    return new User{Id=id,UserName=name,Email=account.Email,PasswordHash=account.PasswordHash,IsActive=true};
   }
   catch(MySqlException ex)when(ex.Number==1062){throw new SignupException(409,"An account already exists. Sign in to continue.");}

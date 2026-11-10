@@ -18,7 +18,7 @@ X-Zumaris-CSRF: 1
 }
 ```
 
-Use `payload.accessToken` as `Authorization: Bearer <token>` on every protected request. The Identity account must already have active membership in `platform_administrators`; selecting Admin does not grant that membership. The backend returns 403 when credentials are correct but membership is missing. Existing `/identity/api/auth/refresh?application=Admin` and `/identity/api/auth/logout?application=Admin` handle the application-specific HttpOnly refresh cookie, with `X-Zumaris-CSRF: 1` and browser credentials enabled. No admin account creation or role-management API is part of this scope. See [application authentication](application-authentication.md).
+Use `payload.accessToken` as `Authorization: Bearer <token>` on every protected request. The Identity account must already have active membership in `platform_administrators`; selecting Admin does not grant that membership. The backend returns 403 when credentials are correct but membership is missing. Existing `/identity/api/auth/refresh?application=Admin` and `/identity/api/auth/logout?application=Admin` handle the application-specific HttpOnly refresh cookie, with `X-Zumaris-CSRF: 1` and browser credentials enabled. Administrator account creation is now available in Identity; see [administrator accounts](administrator-accounts.md). General role-management remains outside this scope. See [application authentication](application-authentication.md).
 
 Provider validates both the Admin token context and current administrator access through Identity. App and Tech tokens cannot access these administration routes. Losing administrator membership blocks profile access, downloads, queue access and document decisions even if the old signed token still says Admin.
 

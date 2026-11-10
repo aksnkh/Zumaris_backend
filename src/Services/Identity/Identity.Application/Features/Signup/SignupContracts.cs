@@ -26,6 +26,19 @@ public sealed class SignupService(ISignupRepository repository,IPasswordHasher p
 {
  public async Task<(AuthResponse Response,string RefreshToken)> CreateAsync(SignupRequest input,CancellationToken ct)
  {
+  var account=SignupValidation.ValidateAndHash(input,passwords);
+  var user=await repository.CreateAsync(account,ct);
+  try{return await sessions.IssueAsync(user,ct);}
+  catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
+  catch{throw new SignupException(503,"Your account was created, but sign-in is temporarily unavailable. Sign in to continue.");}
+ }
+}
+
+// Shared account rules; administrator creation does not weaken normal signup validation.
+public static class SignupValidation
+{
+ public static SignupAccount ValidateAndHash(SignupRequest input,IPasswordHasher passwords)
+ {
   var errors=new Dictionary<string,string[]>();
   string Name(string? value,string field)
   {var name=value?.Trim()??"";if(name.Length is <1 or >100||name.Any(char.IsControl))errors[field]=[$"{field} must contain 1 to 100 characters without control characters."];return name;}
@@ -38,9 +51,6 @@ public sealed class SignupService(ISignupRepository repository,IPasswordHasher p
   else{phone="+"+new string(phone.Where(char.IsAsciiDigit).ToArray());if(!Regex.IsMatch(phone,@"\A\+[1-9][0-9]{6,14}\z"))errors["phone"]=["The phone number must contain 7 to 15 digits and a valid country code."];}
   if(string.IsNullOrWhiteSpace(input.Password)||input.Password.Length is <8 or >1024)errors["password"]=["Password must contain 8 to 1024 characters."];
   if(errors.Count>0)throw new SignupException(400,string.Join(" ",errors.Values.SelectMany(x=>x)),errors);
-  var user=await repository.CreateAsync(new(first,last,email,phone,passwords.Hash(input.Password)),ct);
-  try{return await sessions.IssueAsync(user,ct);}
-  catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
-  catch{throw new SignupException(503,"Your account was created, but sign-in is temporarily unavailable. Sign in to continue.");}
+  return new(first,last,email,phone,passwords.Hash(input.Password));
  }
 }

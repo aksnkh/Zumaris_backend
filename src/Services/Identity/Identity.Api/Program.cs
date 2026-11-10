@@ -1,3 +1,4 @@
+using Identity.Application.Features.Administration;
 using Zumaris.BuildingBlocks.Common.Security;
 using Identity.Application.Features.Signup;
 using Identity.Application.Features.Profile;
@@ -76,6 +77,10 @@ builder.Services.AddHttpClient<IProviderLoginAccessClient, ProviderLoginAccessCl
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<ISignupRepository,SignupRepository>();
 builder.Services.AddScoped<SignupService>();
+builder.Services.AddScoped<IAdministratorAccountRepository, AdministratorAccountRepository>();
+builder.Services.AddScoped<AdministratorAccountService>();
+builder.Services.AddScoped<ActiveAdministratorFilter>();
+builder.Services.AddScoped<AdministratorBootstrapKeyFilter>();
 builder.Services.AddScoped<SignupExceptionFilter>();
 builder.Services.AddScoped<IUserSessionIssuer, UserSessionIssuer>();
 builder.Services.AddScoped<IGoogleIdentityValidator, GoogleIdentityValidator>();
@@ -126,6 +131,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
                 session.Application != context.Principal!.FindFirst("application")?.Value ||
                 session.ProviderId?.ToString() != context.Principal.FindFirst("providerId")?.Value)
                 context.Fail("The application session is invalid or expired.");
+        },
+        OnChallenge = async context =>
+        {
+            if (!context.Request.Path.Equals("/api/admin/accounts", StringComparison.OrdinalIgnoreCase)) return;
+            context.HandleResponse();
+            await Results.Json(Zumaris.BuildingBlocks.Common.Responses.ApiResponseError.Create(401,
+                "Sign in to Admin to create an administrator account.", context.HttpContext.TraceIdentifier),
+                options: new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+                { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter<Zumaris.BuildingBlocks.Common.Responses.MessageLevel>() } },
+                statusCode: 401).ExecuteAsync(context.HttpContext);
         }
     };
 });

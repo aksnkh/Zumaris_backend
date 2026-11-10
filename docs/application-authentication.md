@@ -2,6 +2,10 @@
 
 Identity issues a separate session for each application. A registered Identity account is the existing base customer account (`App`); an active, consented Provider signup additionally permits `Tech`. An active `platform_administrators` membership permits `Admin`. Choosing an application never grants membership.
 
+## Administrator account creation
+
+Identity now provides authenticated administrator account creation and a disabled-by-default, server-key-protected first-administrator bootstrap. See [administrator accounts](administrator-accounts.md) and manual migration 007. Public signup still cannot grant Admin.
+
 ## Login
 
 `POST /identity/api/auth/login`

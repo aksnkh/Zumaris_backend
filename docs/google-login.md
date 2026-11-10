@@ -1,3 +1,5 @@
+> Current canonical login takes email/password at `/api/app/login`, `/api/tech/login`, `/api/admin/login`. Old `/api/auth` login/register/signup/refresh/logout and admin creation aliases are removed. New accounts store email as user_name. See [current contract](independent-accounts.md).
+
 > Current architecture: independent App/Tech/Admin account tables and route-scoped register/login/refresh/logout. See [independent accounts](independent-accounts.md). Database setup and shared-user examples below are historical: use reset script 008, never apply scripts 001–007 afterward. Google/BFF requests still select an application; Tech/Admin require an existing account and explicit link.
 
 <div dir="rtl" align="right">

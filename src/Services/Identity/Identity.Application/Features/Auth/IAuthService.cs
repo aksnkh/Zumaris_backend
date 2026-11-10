@@ -1,5 +1,4 @@
 ﻿using Identity.Application.Features.Auth.Models;
-using Zumaris.Identity.Application.DTOs;
 
 namespace Identity.Application.Features.Auth;
 
@@ -15,5 +14,4 @@ public interface IAuthService
 
     Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default, string? application = null);
 
-    Task<RegisterResponse> RegisterAsync(RegisterRequest request);
 }

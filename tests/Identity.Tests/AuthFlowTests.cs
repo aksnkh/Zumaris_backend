@@ -17,10 +17,9 @@ public sealed class AuthFlowTests
 {
     private static async Task<(string Access, string Refresh, DateTime SessionExpiry)> Login(HttpClient client)
     {
-        using var response = await client.PostAsJsonAsync("/api/auth/login", new
-            { userName = "alice", password = "Password-for-tests-1", application = "App" });
+        using var response = await client.PostAsJsonAsync("/api/app/login", new { email = "alice@example.test", password = "Password-for-tests-1" });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        Assert.True(response.Headers.CacheControl?.NoStore);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var payload = json.RootElement.GetProperty("payload");
         var cookie = response.Headers.GetValues("Set-Cookie").Single(c => !c.Contains("expires=Thu, 01 Jan 1970"));
@@ -33,7 +32,7 @@ public sealed class AuthFlowTests
 
     private static Task<HttpResponseMessage> Refresh(HttpClient client, string token)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh?application=App");
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/app/refresh");
         request.Headers.Add("Cookie", "zumaris_refresh_token_app=" + token);
         return client.SendAsync(request);
     }
@@ -75,7 +74,7 @@ public sealed class AuthFlowTests
     {
         using var factory = new AuthFactory(); using var client = factory.NewClient();
         var login = await Login(client);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout?application=App");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/app/logout");
         request.Headers.Add("Cookie", "zumaris_refresh_token_app=" + login.Refresh);
         Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(request)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Refresh(client, login.Refresh)).StatusCode);
@@ -123,8 +122,7 @@ public sealed class AuthFlowTests
     {
         using var factory = new AuthFactory { EnvironmentName = "Production" };
         using var client = factory.NewClient();
-        using var response = await client.PostAsJsonAsync("/api/auth/login", new
-            { userName = "alice", password = "Password-for-tests-1", application = "App" });
+        using var response = await client.PostAsJsonAsync("/api/app/login", new { email = "alice@example.test", password = "Password-for-tests-1" });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.All(response.Headers.GetValues("Set-Cookie"), c => Assert.Contains("secure", c.ToLowerInvariant()));
     }
@@ -133,10 +131,9 @@ public sealed class AuthFlowTests
     public async Task Empty_login_and_short_registration_password_are_rejected()
     {
         using var factory = new AuthFactory(); using var client = factory.NewClient();
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/login",
-            new { userName = "", password = "", application = "App" })).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/register",
-            new { username = "bob", password = "short", email = "bob@example.test" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/app/login", new { email = "", password = "" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/app/register",
+            new { firstName = "Bob", lastName = "Test", phone = "+447700900123", password = "short", email = "bob@example.test" })).StatusCode);
         Assert.Empty(factory.Sessions.Items);
     }
 
@@ -145,8 +142,8 @@ public sealed class AuthFlowTests
     {
         using var factory = new AuthFactory(); using var client = factory.NewClient();
         for (var i = 0; i < 30; i++)
-            Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsync("/api/auth/refresh?application=App", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.TooManyRequests, (await client.PostAsync("/api/auth/refresh?application=App", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsync("/api/app/refresh", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await client.PostAsync("/api/app/refresh", null)).StatusCode);
     }
 
     [Fact]
@@ -188,15 +185,15 @@ public sealed class AuthFlowTests
     public async Task Csrf_header_is_required_for_cookie_mutations()
     {
         using var factory = new AuthFactory(); using var client = factory.NewClient(false);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/auth/refresh?application=App", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/auth/logout?application=App", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/app/refresh", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/app/logout", null)).StatusCode);
     }
 
     [Fact]
     public async Task Bad_login_does_not_create_session_or_leak_details()
     {
         using var factory = new AuthFactory(); using var client = factory.NewClient();
-        var response = await client.PostAsJsonAsync("/api/auth/login", new { userName = "alice", password = "wrong", application = "App" });
+        var response = await client.PostAsJsonAsync("/api/app/login", new { email = "alice@example.test", password = "wrong" });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Empty(factory.Sessions.Items);
         Assert.DoesNotContain("StackTrace", await response.Content.ReadAsStringAsync());
@@ -206,7 +203,7 @@ public sealed class AuthFlowTests
     public async Task Credentialed_cors_is_denied_for_unconfigured_origin()
     {
         using var factory = new AuthFactory(); using var client = factory.NewClient();
-        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/auth/refresh?application=App");
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/app/refresh");
         request.Headers.Add("Origin", "https://untrusted.example");
         request.Headers.Add("Access-Control-Request-Method", "POST");
         request.Headers.Add("Access-Control-Request-Headers", "X-Zumaris-CSRF");

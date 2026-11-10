@@ -30,7 +30,7 @@ X-Zumaris-CSRF: 1
 ```
 
 ```json
-{"userName":"john@example.com","password":"REPLACE_WITH_USER_PASSWORD"}
+{"email":"john@example.com","password":"REPLACE_WITH_USER_PASSWORD"}
 ```
 
 application در body مسیر جدید لازم نیست؛ مسیر نوع حساب را تعیین می‌کند. حساب App با همان ایمیل و رمز، تا زمانی که Tech مستقل ثبت نشده باشد در این Login پذیرفته نیست. اکانت موجود فقط داخل همان جدول Tech تکراری محسوب می‌شود.

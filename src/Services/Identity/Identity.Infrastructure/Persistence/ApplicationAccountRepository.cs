@@ -17,9 +17,9 @@ internal static class AccountSql
   ProviderEnrollmentRequestedAtUtc=r.IsDBNull(r.GetOrdinal("provider_enrollment_requested_at"))?null:DateTime.SpecifyKind(r.GetDateTime("provider_enrollment_requested_at"),DateTimeKind.Utc)
  };
  private static string? Text(MySqlDataReader r,string col)=>r.IsDBNull(r.GetOrdinal(col))?null:r.GetString(col);
- internal static async Task<User> InsertAsync(MySqlConnection c,MySqlTransaction tx,string application,SignupAccount a,CancellationToken ct,DateTime? now=null,string? username=null)
+ internal static async Task<User> InsertAsync(MySqlConnection c,MySqlTransaction tx,string application,SignupAccount a,CancellationToken ct,DateTime? now=null)
  {
-  var id=Guid.NewGuid();var name=username??"user_"+id.ToString("N");var created=now??DateTime.UtcNow;
+  var id=Guid.NewGuid();var name=a.Email;var created=now??DateTime.UtcNow;
   await using var command=new MySqlCommand($"""
    INSERT INTO {Table(application)}(id,user_name,email,password_hash,is_active,is_deleted,created_at,first_name,last_name,phone,updated_at,provider_enrollment_requested_at)
    VALUES(@id,@name,@email,@hash,1,0,@now,@first,@last,@phone,@now,@consent)
@@ -34,7 +34,7 @@ public sealed class ApplicationAccountRepository(IConfiguration configuration):I
  public async Task<User?> FindAsync(string app,string login,CancellationToken ct)
  {
   await using var c=new MySqlConnection(configuration.GetConnectionString("DefaultConnection"));await c.OpenAsync(ct);
-  await using var cmd=new MySqlCommand($"SELECT * FROM {AccountSql.Table(app)} WHERE user_name=@login OR email=@login LIMIT 2",c);cmd.Parameters.AddWithValue("@login",login.Trim());
+  await using var cmd=new MySqlCommand($"SELECT * FROM {AccountSql.Table(app)} WHERE email=@login LIMIT 2",c);cmd.Parameters.AddWithValue("@login",login.Trim());
   await using var r=await cmd.ExecuteReaderAsync(ct);if(!await r.ReadAsync(ct))return null;var user=AccountSql.Read(r,app);return await r.ReadAsync(ct)?null:user;
  }
  public async Task<User?> FindByIdAsync(string app,Guid id,CancellationToken ct)

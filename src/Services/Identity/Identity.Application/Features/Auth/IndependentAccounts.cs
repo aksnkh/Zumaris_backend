@@ -17,7 +17,7 @@ public interface IProviderEnrollmentClient
  Task<ProviderLoginAccess> EnrollAsync(User technician,CancellationToken ct);
 }
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record AccountLoginRequest([Required,StringLength(255)]string UserName,[Required,StringLength(1024)]string Password);
+public sealed record AccountLoginRequest([Required,EmailAddress,StringLength(254)]string Email,[Required,StringLength(1024)]string Password);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record TechnicianRegisterRequest([Required,StringLength(100)]string FirstName,[Required,StringLength(100)]string LastName,
  [Required,StringLength(254)]string Email,[Required,StringLength(40)]string Phone,[Required,StringLength(1024,MinimumLength=8)]string Password,

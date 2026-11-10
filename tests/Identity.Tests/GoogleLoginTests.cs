@@ -75,8 +75,7 @@ public sealed class GoogleLoginTests
     {
         using var f = new AuthFactory(); using var c = Client(f);
         f.Users.User.PasswordHash = hash;
-        var response = await c.PostAsJsonAsync("/api/auth/login",
-            new { userName = f.Users.User.UserName, password = "Password-for-tests-1", application = "App" });
+        var response = await c.PostAsJsonAsync("/api/app/login", new { email = f.Users.User.Email, password = "Password-for-tests-1" });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Empty(f.Sessions.Items);
     }
@@ -117,7 +116,7 @@ public sealed class GoogleLoginTests
         using var f = new AuthFactory(); using var c = Client(f);
         f.Google.Identity = f.Google.Identity with { Email = f.Users.User.Email };
         Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/google/link", new { idToken = "test-token" })).StatusCode);
-        using var login = await c.PostAsJsonAsync("/api/auth/login", new { userName = "alice", password = "Password-for-tests-1", application = "App" });
+        using var login = await c.PostAsJsonAsync("/api/app/login", new { email = "alice@example.test", password = "Password-for-tests-1" });
         using var json = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
         c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", json.RootElement.GetProperty("payload").GetProperty("accessToken").GetString());
         var hash = f.Users.User.PasswordHash;
@@ -131,7 +130,7 @@ public sealed class GoogleLoginTests
     {
         using var f = new AuthFactory(); using var c = Client(f); await Read(await Google(c));
         var user = Assert.Single(f.Users.GoogleUsers);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/auth/login", new { userName = user.UserName, password = "anything", application = "App" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.PostAsJsonAsync("/api/app/login", new { email = user.Email, password = "anything" })).StatusCode);
         user.IsActive = false;
         Assert.Equal(HttpStatusCode.Unauthorized, (await Google(c)).StatusCode);
         Assert.Single(f.Sessions.Items);

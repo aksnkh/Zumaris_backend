@@ -50,11 +50,9 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
             services.RemoveAll<ISignupRepository>();services.AddSingleton<ISignupRepository>(Signups);
             services.RemoveAll<IProfileRepository>();
             services.AddSingleton<IProfileRepository>(Profiles);
-            services.RemoveAll<IAuthRepository>();
             services.RemoveAll<ISessionRepository>();
             services.RemoveAll<IGoogleIdentityValidator>();
             services.RemoveAll<IExternalLoginRepository>();
-            services.AddSingleton<IAuthRepository>(Users);
             services.AddSingleton<ISessionRepository>(Sessions);
             services.AddSingleton<IGoogleIdentityValidator>(Google);
             services.AddSingleton<IExternalLoginRepository>(External);
@@ -76,7 +74,7 @@ public sealed class AuthFactory : WebApplicationFactory<Program>
     }
 }
 
-public sealed class MemoryUsers : IAuthRepository
+public sealed class MemoryUsers
 {
     public List<User> GoogleUsers { get; } = [];
     public User User { get; } = new()
@@ -84,9 +82,7 @@ public sealed class MemoryUsers : IAuthRepository
         Id = Guid.NewGuid(), UserName = "alice", Email = "alice@example.test", IsActive = true,
         PasswordHash = new PasswordHasher().Hash("Password-for-tests-1")
     };
-    public Task<User?> GetUserByUsernameAsync(string userName, CancellationToken cancellationToken = default) =>
-        Task.FromResult(userName == User.UserName ? User : GoogleUsers.SingleOrDefault(u => u.Application=="App" && u.UserName == userName));
-    public Task<bool> RegisterAsync(string username, string passwordHash, string email) => Task.FromResult(true);
+
 }
 
 // A contract fake, not a substitute for testing MySQL transactions after the manual migration.
@@ -175,7 +171,7 @@ public sealed class FakeExternalLogins(MemoryUsers users) : IExternalLoginReposi
             if(application!="App")throw new ApplicationLoginException(403,"Register and link an account in this application first.");
             if (new[] { users.User }.Concat(users.GoogleUsers).Where(u=>u.Application==application).Any(u => string.Equals(u.Email, identity.Email, StringComparison.OrdinalIgnoreCase)))
                 throw new ExternalLoginConflictException();
-            var user = new User { Id = Guid.NewGuid(), UserName = "google_" + Guid.NewGuid().ToString("N"), Email = identity.Email, PasswordHash = null, IsActive = true };
+            var user = new User { Id = Guid.NewGuid(), UserName = identity.Email, Email = identity.Email, PasswordHash = null, IsActive = true };
             users.GoogleUsers.Add(user); links.Add(application+":"+identity.Subject, user); return Task.FromResult(user);
         }
     }
@@ -199,7 +195,7 @@ public sealed class MemorySignup(MemoryUsers users,MemoryProfiles profiles):ISig
  {
   if(Fail)throw new InvalidOperationException("Private database failure: do not expose.");
   if(await FindByEmailAsync(input.Email,ct) is not null)throw new SignupException(409,"An account already exists. Sign in to continue.");
-  var user=new User{Id=Guid.NewGuid(),UserName="user_"+Guid.NewGuid().ToString("N"),Email=input.Email,PasswordHash=input.PasswordHash,IsActive=true};users.GoogleUsers.Add(user);
+  var user=new User{Id=Guid.NewGuid(),UserName=input.Email,Email=input.Email,PasswordHash=input.PasswordHash,IsActive=true};users.GoogleUsers.Add(user);
   await profiles.UpdateAsync(user.Id,new(input.FirstName,input.LastName,input.Phone),DateTime.UtcNow,ct);return user;
  }
  public Task<User?> FindByEmailAsync(string email,CancellationToken ct)
@@ -232,14 +228,14 @@ public sealed class MemoryApplicationAccounts(MemoryUsers users,MemoryProfiles p
   var user=new User{Id=Guid.NewGuid(),UserName=name,Email=email,PasswordHash=users.User.PasswordHash,Application=app,IsActive=true,FirstName="Test",LastName="Account",Phone="+447700900123",ProviderEnrollmentRequestedAtUtc=app=="Tech"?DateTime.UtcNow:null};
   users.GoogleUsers.Add(user);return user;
  }
- public Task<User?> FindAsync(string app,string login,CancellationToken ct)=>Task.FromResult(All.SingleOrDefault(u=>u.Application==app&&(u.UserName==login||u.Email.Equals(login.Trim(),StringComparison.OrdinalIgnoreCase))));
+ public Task<User?> FindAsync(string app,string login,CancellationToken ct)=>Task.FromResult(All.SingleOrDefault(u=>u.Application==app&&u.Email.Equals(login.Trim(),StringComparison.OrdinalIgnoreCase)));
  public Task<User?> FindByIdAsync(string app,Guid id,CancellationToken ct)=>Task.FromResult(All.SingleOrDefault(u=>u.Application==app&&u.Id==id));
  public async Task<User> CreateAsync(string app,SignupAccount account,CancellationToken ct)
  {
   await gate.WaitAsync(ct);try
   {
    if(All.Any(u=>u.Application==app&&u.Email.Equals(account.Email,StringComparison.OrdinalIgnoreCase)))throw new SignupException(409,"An account already exists in this application.");
-   var user=new User{Id=Guid.NewGuid(),UserName="user_"+Guid.NewGuid().ToString("N"),Email=account.Email,PasswordHash=account.PasswordHash,Application=app,IsActive=true,FirstName=account.FirstName,LastName=account.LastName,Phone=account.Phone,ProviderEnrollmentRequestedAtUtc=app=="Tech"?DateTime.UtcNow:null};
+   var user=new User{Id=Guid.NewGuid(),UserName=account.Email,Email=account.Email,PasswordHash=account.PasswordHash,Application=app,IsActive=true,FirstName=account.FirstName,LastName=account.LastName,Phone=account.Phone,ProviderEnrollmentRequestedAtUtc=app=="Tech"?DateTime.UtcNow:null};
    users.GoogleUsers.Add(user);await profiles.UpdateAsync(user.Id,new(account.FirstName,account.LastName,account.Phone),DateTime.UtcNow,ct);return user;
   }finally{gate.Release();}
  }

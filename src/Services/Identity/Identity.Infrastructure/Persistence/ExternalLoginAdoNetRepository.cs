@@ -1,6 +1,4 @@
 using System.Data;
-using System.Security.Cryptography;
-using System.Text;
 using Identity.Application.Features.Auth;
 using Microsoft.Extensions.Configuration;
 using MySqlConnector;
@@ -21,15 +19,15 @@ public sealed class ExternalLoginAdoNetRepository(IConfiguration configuration):
   var existing=await Find(c,null,application,identity.Subject,ct);if(existing is not null)return existing;
   // Tech/Admin registration must be explicit; Google cannot bypass consent or admin authorization.
   if(application!="App")throw new ApplicationLoginException(403,"Register an account in this application and explicitly link Google before signing in with Google.");
-  var name="google_"+Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity.Subject))).ToLowerInvariant()[..32];
+  var name=identity.Email.Trim().ToLowerInvariant();
   try
   {
    await using var tx=await c.BeginTransactionAsync(IsolationLevel.ReadCommitted,ct);
    await using(var check=Cmd(c,tx,$"SELECT id FROM {table} WHERE email=@email OR user_name=@name LIMIT 1",("@email",identity.Email),("@name",name)))
    if(await check.ExecuteScalarAsync(ct)is not null){var winner=await Find(c,tx,application,identity.Subject,ct);if(winner is null)throw new ExternalLoginConflictException();await tx.CommitAsync(ct);return winner;}
-   var id=Guid.NewGuid();await using(var insert=Cmd(c,tx,$"INSERT INTO {table}(id,user_name,email,password_hash,created_at)VALUES(@id,@name,@email,NULL,UTC_TIMESTAMP(6))",("@id",id.ToString()),("@name",name),("@email",identity.Email)))await insert.ExecuteNonQueryAsync(ct);
+   var id=Guid.NewGuid();await using(var insert=Cmd(c,tx,$"INSERT INTO {table}(id,user_name,email,password_hash,created_at)VALUES(@id,@name,@email,NULL,UTC_TIMESTAMP(6))",("@id",id.ToString()),("@name",name),("@email",name)))await insert.ExecuteNonQueryAsync(ct);
    await Link(c,tx,id,application,identity.Subject,ct);await tx.CommitAsync(ct);
-   return new(){Id=id,UserName=name,Email=identity.Email,PasswordHash=null,IsActive=true,Application=application};
+   return new(){Id=id,UserName=name,Email=name,PasswordHash=null,IsActive=true,Application=application};
   }
   catch(MySqlException ex)when(ex.Number==1062){return await Find(c,null,application,identity.Subject,ct)??throw new ExternalLoginConflictException();}
  }

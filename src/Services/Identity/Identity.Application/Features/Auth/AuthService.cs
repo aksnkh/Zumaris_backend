@@ -2,12 +2,10 @@ using Identity.Application.Abstractions.Persistence;
 using Identity.Application.Abstractions.Security;
 using Identity.Application.Features.Auth.Models;
 using Identity.Domain.Entities;
-using Zumaris.Identity.Application.DTOs;
 
 namespace Identity.Application.Features.Auth;
 
 public sealed class AuthService(
-    IAuthRepository users,
     ISessionRepository sessions,
     IPasswordHasher passwords,
     ITokenService tokens,
@@ -20,12 +18,12 @@ public sealed class AuthService(
     public async Task<(AuthResponse Response, string RefreshToken)> LoginAsync(
         LoginRequest request, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
-            throw new UnauthorizedAccessException("Invalid username or password.");
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            throw new UnauthorizedAccessException("Invalid email or password.");
         if(request.Application is not ("App" or "Tech" or "Admin"))throw new ApplicationLoginException(400,"Application must be App, Tech or Admin.");
-        var user = await accounts.FindAsync(request.Application,request.UserName,cancellationToken);
+        var user = await accounts.FindAsync(request.Application,request.Email,cancellationToken);
         if (user is null || !user.IsActive || string.IsNullOrWhiteSpace(user.PasswordHash) || !passwords.Verify(request.Password, user.PasswordHash))
-            throw new UnauthorizedAccessException("Invalid username or password.");
+            throw new UnauthorizedAccessException("Invalid email or password.");
 
         var grant = await access.ResolveAsync(user.Id, request.Application, cancellationToken);
         return await issuer.IssueAsync(user, cancellationToken, grant.Application, grant.ProviderId);
@@ -84,17 +82,4 @@ public sealed class AuthService(
         if (session is not null) await sessions.RevokeAsync(session.Id, session.UserId, cancellationToken);
     }
 
-    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
-    {
-        var passwordHash = passwords.Hash(request.Password);
-        try
-        {
-            await users.RegisterAsync(request.Username, passwordHash, request.Email);
-            return new RegisterResponse(true, "User registered successfully.");
-        }
-        catch (Exception ex) when (ex.Message.Contains("Username already exists", StringComparison.OrdinalIgnoreCase))
-        {
-            return new RegisterResponse(false, "Username is already taken.");
-        }
-    }
 }

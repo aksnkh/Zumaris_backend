@@ -29,7 +29,7 @@
 
 ```json
 {
-  "userName": "admin@example.com",
+  "email": "admin@example.com",
   "password": "REPLACE_WITH_USER_PASSWORD"
 }
 ```
@@ -79,6 +79,6 @@ X-Zumaris-Bootstrap-Key: YOUR_PRIVATE_SERVER_BOOTSTRAP_KEY
 | 409 | ایمیل تکراری در Admin یا راه‌اندازی قبلاً تکمیل‌شده |
 | 503 | تنظیمات یا سرویس لازم در دسترس نیست |
 
-مسیرهای قبلی `/api/admin/accounts` و `/api/admin/bootstrap` همچنان نام‌های جایگزین حفاظت‌شده هستند. `/api/auth/login` نیز به‌عنوان مسیر قدیمی با فیلد `application: "Admin"` باقی است؛ برای فرانت جدید مسیر اختصاصی بالا را استفاده کنید.
+مسیرهای تکراری `/api/admin/accounts`، `/api/admin/bootstrap` و `/api/auth/login` حذف شدند؛ فقط مسیرهای اختصاصی جدول بالا استفاده شوند.
 
 اسکریپت 008 داده‌های قدیمی Identity را حذف می‌کند؛ اسکریپت‌های تاریخی 001 تا 007 را پس از آن اجرا نکنید. SQL در startup اجرا نمی‌شود و روی سرور کاربر اجرا نشده است. در این تغییر معماری Identity و Provider هر دو باید منتشر شوند؛ راهنمای کامل ترتیب استقرار در سند حساب‌های مستقل است.

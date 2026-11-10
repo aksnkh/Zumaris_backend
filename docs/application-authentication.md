@@ -10,7 +10,7 @@ See [the complete independent-account API and destructive reset guide](independe
 | Tech | `/identity/api/tech/register` | `/identity/api/tech/login` | `/identity/api/tech/refresh` | `/identity/api/tech/logout` |
 | Admin | `/identity/api/admin/register` | `/identity/api/admin/login` | `/identity/api/admin/refresh` | `/identity/api/admin/logout` |
 
-All are POST. Login takes `{ "userName": "person@example.com", "password": "..." }`; the route selects the application and extra fields are rejected. CSRF headers remain mandatory for Identity writes. Cookies stay HttpOnly and separate per application. Register App/Tech returns `Response<AuthResponse>`; Admin registration returns created account information without replacing the creator's session. Tech register requires explicit Provider terms consent and automatically provisions its own Provider profile through a purpose-bound server credential. Retry Tech login completes provisioning after a transient Provider outage.
+All are POST. Login takes `{ "email": "person@example.com", "password": "..." }`; the route selects the application and extra fields are rejected. CSRF headers remain mandatory for Identity writes. Cookies stay HttpOnly and separate per application. Register App/Tech returns `Response<AuthResponse>`; Admin registration returns created account information without replacing the creator's session. Tech register requires explicit Provider terms consent and automatically provisions its own Provider profile through a purpose-bound server credential. Retry Tech login completes provisioning after a transient Provider outage.
 
 Admin registration requires an active Admin account/token or a private server key for the one-time first administrator. Normal public registration never creates an administrator. See [administrator accounts](administrator-accounts.md).
 
@@ -24,6 +24,6 @@ Every deployed API service retains application isolation and resource ownership:
 - Explicitly shared: catalog, public business summaries/reviews, quote details and job-photo access with role-specific ownership.
 - Shared self profile/sessions: only the current account ID and application.
 
-The prior App-to-Tech Provider enrolment exception is removed. An App token cannot register a Provider. Same email in another application grants no permissions. `/api/auth/signup` and legacy register are App-only aliases; the old login route is retained only as an explicit-application alias that reads the separate table.
+The prior App-to-Tech Provider enrolment exception is removed. An App token cannot register a Provider. Same email in another application grants no permissions. Legacy `/api/auth` login/register/signup/refresh/logout routes and `/api/admin/accounts`/bootstrap aliases are removed. Use only the three canonical surfaces. New accounts store normalized email in user_name; JWT subject and session ownership remain the immutable user ID.
 
 The user authorized a fresh reset instead of data migration. Run Identity reset 008 and the separate Provider data-reset script as documented, then deploy Identity and Provider. Identity scripts 001..007 are historical and must not be applied over the replacement schema. No user database SQL is executed by application startup.

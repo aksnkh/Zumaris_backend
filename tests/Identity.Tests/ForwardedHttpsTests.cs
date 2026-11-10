@@ -23,7 +23,7 @@ public sealed class ForwardedHttpsTests
             services.AddSingleton<IStartupFilter>(new RemoteAddressFilter(IPAddress.Parse(remoteIp)));
         }));
         using var client = host.CreateClient(new() { BaseAddress = new Uri("http://localhost"), AllowAutoRedirect = false });
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh?application=App");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/app/refresh");
         request.Headers.Add("X-Forwarded-Proto", "https");
         request.Headers.Add("X-Forwarded-For", "198.51.100.20");
         request.Headers.Add("X-Zumaris-CSRF", "1");

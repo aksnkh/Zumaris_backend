@@ -22,12 +22,12 @@ X-Zumaris-CSRF: 1
 
 ```json
 {
-  "userName": "person@example.com",
+  "email": "person@example.com",
   "password": "USER_PASSWORD"
 }
 ```
 
-`userName` می‌تواند ایمیل یا نام کاربریِ همان ساید باشد. نام کاربری داخلی ثبت‌نام جدید در سرور ساخته می‌شود. پاسخ 200 از `Response<AuthResponse>` است و در payload، accessToken، تاریخ‌های انقضا، userId، userName، application، role و providerId وجود دارند. role برای App برابر Customer، برای Tech برابر Provider و برای Admin برابر Admin است. providerId فقط برای Tech پر می‌شود. JWT و نشست به همان جدول و حساب مقیدند؛ اطلاعات نقش یا شناسهٔ حساب از body پذیرفته نمی‌شود.
+ورودی `email` باید ایمیل معتبر حساب همان ساید باشد؛ نام کاربری برای ورود در مسیرهای جدید پذیرفته نمی‌شود. مقدار `userName` حساب جدید برابر ایمیل نرمال‌شده ذخیره می‌شود؛ این ستون برای امکان تغییر تصمیم در آینده باقی است. مبنای هویت JWT و نشست، `userId` است. پاسخ 200 از `Response<AuthResponse>` است و در payload، accessToken، تاریخ‌های انقضا، userId، userName، application، role و providerId وجود دارند. role برای App برابر Customer، برای Tech برابر Provider و برای Admin برابر Admin است. providerId فقط برای Tech پر می‌شود. JWT و نشست به همان جدول و حساب مقیدند؛ اطلاعات نقش یا شناسهٔ حساب از body پذیرفته نمی‌شود.
 
 حسابی که فقط در App ثبت‌نام کرده با همان credentials از Tech/Admin پاسخ 401 می‌گیرد. ثبت‌نام مستقل همان ایمیل در Tech مجاز است، ولی شناسهٔ دیگری ایجاد می‌کند و باید واقعاً رمز حساب Tech را در ورود Tech ارائه کند.
 
@@ -114,15 +114,11 @@ POST /identity/api/admin/logout
 
 لینک Google با کلید `(application, provider, subject)` جداست. یک Google subject می‌تواند به سه حساب جدا لینک شود. تطبیق ایمیل، لینک یا ارتقای ضمنی ایجاد نمی‌کند. ورود اولیهٔ Google فقط می‌تواند App بسازد. برای Tech/Admin ابتدا ثبت‌نام مستقل و مجاز انجام و سپس Google صریحاً به همان حساب لینک شود. BFF همچنان سروری است و کلیدش در مرورگر قرار نمی‌گیرد.
 
-## مسیرهای قبلی
+## حذف مسیرهای تکراری
 
-برای جلوگیری از ایجاد حساب مشترک از مسیرهای قدیمی:
+مسیرهای `/api/auth/login`، register، signup، refresh و logout حذف شدند. مسیرهای `/api/admin/accounts` و `/api/admin/bootstrap` نیز حذف شدند؛ ساخت اولین مدیر و مدیرهای بعدی فقط از `/api/admin/register` با همان کنترل‌های امنیتی انجام می‌شود. مسیرهای مدیریت نشست و Google/BFF باقی‌اند؛ آن‌ها کاربرد مستقل دارند.
 
-- `/identity/api/auth/register` و `/identity/api/auth/signup` فقط alias حساب **App** هستند.
-- `/identity/api/auth/login` با application صریح باقی است، اما هر مقدار فقط جدول مستقل همان ساید را می‌خواند.
-- `/identity/api/auth/refresh` و logout قدیمی نیز به ساید نشست و query application مقیدند.
-- `/identity/api/admin/accounts` و bootstrap قبلی aliasهای محافظت‌شدهٔ ساخت Admin مستقل هستند.
-- `/provider/api/providers/signup` فقط Tech را می‌پذیرد؛ حساب/توکن App دیگر از این مسیر Provider نمی‌سازد. مسیر اصلی جدید، ثبت‌نام Tech در Identity است و فراخوانی enrolment را خود بک‌اند انجام می‌دهد.
+`/provider/api/providers/signup` همچنان فقط Tech را می‌پذیرد؛ مسیر اصلی ایجاد پروفایل، ثبت‌نام Tech در Identity است.
 
 ## ارتباط داخلی جدید Provider
 
@@ -144,3 +140,7 @@ POST /identity/api/admin/logout
 این resetها فقط Identity و Provider را هدف می‌گیرند. داده‌ها و فایل‌های Property، ServiceRequest و Billing یا عکس‌های قدیمیِ روی دیسک حذف/منتقل نمی‌شوند؛ اگر ریست کامل محیط لازم باشد باید آن سرویس‌ها نیز با اسکریپت مالک خودشان پاک‌سازی شوند. رکوردهای وابسته به شناسه‌های قدیمی خودکار به حساب جدید متصل نمی‌شوند.
 
 هیچ‌کدام از اسکریپت‌ها در runtime یا روی دیتابیس سرور کاربر توسط ابزار توسعه اجرا نشده‌اند؛ آزمون SQL فقط در دیتابیس‌های disposable روی localhost انجام می‌شود.
+
+## ظرفیت نام کاربری
+
+در نسخهٔ فعلی 008، ستون user_name در حساب‌ها و نشست‌ها ۲۵۴ کاراکتر است. اگر 008 را قبل از این اصلاح اجرا کرده‌اید، فقط `database/identity/009_email_username_capacity.sql` را اجرا کنید؛ این فایل داده‌ها را پاک نمی‌کند و اجرای دوبارهٔ 008 لازم نیست.

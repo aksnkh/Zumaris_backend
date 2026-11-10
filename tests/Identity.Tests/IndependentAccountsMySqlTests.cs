@@ -29,7 +29,7 @@ public class IndependentAccountsMySqlTests
  {
   var(_,cfg)=await Reset();var accounts=new ApplicationAccountRepository(cfg);var adminRepo=new AdministratorAccountRepository(cfg);
   var app=await accounts.CreateAsync("App",Input(),default);var tech=await accounts.CreateAsync("Tech",Input(),default);var admin=await adminRepo.CreateAsync(Input(),null,DateTime.UtcNow,default);
-  Assert.Equal(3,new[]{app.Id,tech.Id,admin.UserId}.Distinct().Count());
+  Assert.Equal(3,new[]{app.Id,tech.Id,admin.UserId}.Distinct().Count());Assert.Equal(app.Email,app.UserName);Assert.Equal(tech.Email,tech.UserName);Assert.Equal(admin.Email,admin.UserName);
   Assert.Equal(app.Id,(await accounts.FindAsync("App","SAME@example.test",default))!.Id);Assert.Equal(tech.Id,(await accounts.FindAsync("Tech","SAME@example.test",default))!.Id);Assert.Equal(admin.UserId,(await accounts.FindAsync("Admin","same@example.test",default))!.Id);
   Assert.Null(await accounts.FindByIdAsync("App",tech.Id,default));Assert.Null(await accounts.FindByIdAsync("Tech",admin.UserId,default));
   var admins=new PlatformAdminRepository(cfg);Assert.False(await admins.IsAdminAsync(app.Id,default));Assert.False(await admins.IsAdminAsync(tech.Id,default));Assert.True(await admins.IsAdminAsync(admin.UserId,default));
@@ -37,6 +37,29 @@ public class IndependentAccountsMySqlTests
   Assert.Equal("Same",(await profiles.GetAsync(app.Id,default))!.FirstName);Assert.Equal("Tech",(await profiles.GetAsync(tech.Id,default))!.FirstName);Assert.Equal("Same",(await profiles.GetAsync(admin.UserId,default))!.FirstName);
   Assert.Equal(409,(await Assert.ThrowsAsync<SignupException>(()=>accounts.CreateAsync("App",Input(),default))).Status);
   Assert.Equal(403,(await Assert.ThrowsAsync<SignupException>(()=>adminRepo.CreateAsync(Input("bad@example.test"),app.Id,DateTime.UtcNow,default))).Status);
+ }
+ [IndependentMySqlFact]
+ public async Task Email_username_supports_full_length_and_sessions_use_user_id()
+ {
+  var(cs,cfg)=await Reset();
+  var email=new string('a',64)+"@"+new string('b',63)+"."+new string('c',63)+"."+new string('d',56)+".test";
+  Assert.Equal(254,email.Length);
+  var accounts=new ApplicationAccountRepository(cfg);var user=await accounts.CreateAsync("App",Input(email),default);
+  Assert.Equal(email,user.UserName);Assert.Equal(user.Id,(await accounts.FindAsync("App",email,default))!.Id);
+  var sessions=new SessionAdoNetRepository(cfg);var now=DateTime.UtcNow;
+  var session=new AuthSession(Guid.NewGuid(),user.Id,user.UserName,now,now.AddHours(1),null){Application="App"};
+  await sessions.CreateAsync(session,new string('a',64));Assert.True(await sessions.IsActiveAsync(session.Id,user.Id));
+  // The patch for installations that already applied 008 must retain data.
+  await using var c=new MySqlConnection(cs);await c.OpenAsync();
+  var root=new DirectoryInfo(AppContext.BaseDirectory);while(root is not null&&!File.Exists(Path.Combine(root.FullName,"Zumaris.sln")))root=root.Parent;
+  var patch=(await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/identity/009_email_username_capacity.sql"))).Replace("zumaris_identity","zumaris_independent_identity_test");
+  await using(var cmd=new MySqlCommand(patch,c))await cmd.ExecuteNonQueryAsync();
+  Assert.Equal(user.Id,(await accounts.FindAsync("App",email,default))!.Id);
+  await using(var change=new MySqlCommand("UPDATE app_accounts SET user_name='future-name@example.test' WHERE id=@id",c))
+  {change.Parameters.AddWithValue("@id",user.Id.ToString());await change.ExecuteNonQueryAsync();}
+  Assert.Null(await accounts.FindAsync("App","future-name@example.test",default));
+  Assert.Equal(user.Id,(await accounts.FindAsync("App",email,default))!.Id);
+  Assert.True(await sessions.IsActiveAsync(session.Id,user.Id));
  }
  [IndependentMySqlFact]
  public async Task Concurrent_registration_is_unique_inside_each_table_but_does_not_reserve_another_sides_email()
@@ -73,12 +96,11 @@ public class IndependentAccountsMySqlTests
   await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>google.LinkGoogleAsync(app.Id,identity,default,"Tech"));
  }
  [IndependentMySqlFact]
- public async Task Failed_admin_audit_rolls_back_admin_account_and_bootstrap_marker_and_legacy_App_register_stays_App_only()
+ public async Task Failed_admin_audit_rolls_back_admin_account_and_bootstrap_marker()
  {
   var(cs,cfg)=await Reset();await using var c=new MySqlConnection(cs);await c.OpenAsync();
   await using(var fail=new MySqlCommand("CREATE TRIGGER fail_admin_audit BEFORE INSERT ON identity_administrator_account_creations FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Test rollback'",c))await fail.ExecuteNonQueryAsync();
   var repo=new AdministratorAccountRepository(cfg);try{await Assert.ThrowsAsync<MySqlException>(()=>repo.CreateAsync(Input(),null,DateTime.UtcNow,default));}finally{await using var drop=new MySqlCommand("DROP TRIGGER fail_admin_audit",c);await drop.ExecuteNonQueryAsync();}
   var accounts=new ApplicationAccountRepository(cfg);Assert.Null(await accounts.FindAsync("Admin","same@example.test",default));var created=await repo.CreateAsync(Input(),null,DateTime.UtcNow,default);Assert.NotEqual(Guid.Empty,created.UserId);
-  var legacy=new AuthAdoNetRepository(cfg);await legacy.RegisterAsync("legacy","hash","legacy@example.test");Assert.NotNull(await accounts.FindAsync("App","legacy",default));Assert.Null(await accounts.FindAsync("Tech","legacy",default));Assert.Null(await accounts.FindAsync("Admin","legacy",default));
  }
 }

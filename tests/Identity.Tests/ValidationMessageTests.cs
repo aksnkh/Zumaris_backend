@@ -9,7 +9,7 @@ public class ValidationMessageTests
     public async Task Missing_login_fields_return_english_message_and_errors()
     {
         using var factory = new AuthFactory(); using var client = factory.NewClient();
-        using var response = await client.PostAsJsonAsync("/api/auth/login",new {});
+        using var response = await client.PostAsJsonAsync("/api/app/login", new {});
         Assert.Equal(HttpStatusCode.BadRequest,response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Contains("Please provide a valid value",json.RootElement.GetProperty("message").GetString());

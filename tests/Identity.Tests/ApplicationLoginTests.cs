@@ -6,16 +6,13 @@ using Xunit;
 namespace Identity.Tests;
 public class ApplicationLoginTests
 {
- private static Task<HttpResponseMessage> Login(HttpClient c,string app)=>c.PostAsJsonAsync("/api/auth/login",new{userName="alice",password="Password-for-tests-1",application=app});
+ private static Task<HttpResponseMessage> Login(HttpClient c,string app)=>c.PostAsJsonAsync($"/api/{app.ToLowerInvariant()}/login", new {email="alice@example.test",password="Password-for-tests-1"});
  private static async Task<(string Access,string Refresh)> Read(HttpResponseMessage r,string app)
  {
   Assert.Equal(HttpStatusCode.OK,r.StatusCode);using var j=JsonDocument.Parse(await r.Content.ReadAsStringAsync());var p=j.RootElement.GetProperty("payload");Assert.Equal(app,p.GetProperty("application").GetString());
   var cookie=r.Headers.GetValues("Set-Cookie").Single(x=>x.StartsWith("zumaris_refresh_token_"+app.ToLowerInvariant()+"="));return(p.GetProperty("accessToken").GetString()!,cookie.Split(';')[0].Split('=',2)[1]);
  }
- private static Task<HttpResponseMessage> Refresh(HttpClient c,string app,string token){var r=new HttpRequestMessage(HttpMethod.Post,"/api/auth/refresh?application="+app);r.Headers.Add("Cookie","zumaris_refresh_token_"+app.ToLowerInvariant()+"="+token);return c.SendAsync(r);}
- [Theory][InlineData(null)][InlineData("")][InlineData("Unknown")][InlineData("tech")]
- public async Task Legacy_login_still_requires_explicit_application(string? app)
- {using var f=new AuthFactory();using var c=f.NewClient();Assert.Equal(HttpStatusCode.BadRequest,(await Login(c,app!)).StatusCode);Assert.Empty(f.Sessions.Items);}
+ private static Task<HttpResponseMessage> Refresh(HttpClient c,string app,string token){var r=new HttpRequestMessage(HttpMethod.Post,"/api/"+app.ToLowerInvariant()+"/refresh");r.Headers.Add("Cookie","zumaris_refresh_token_"+app.ToLowerInvariant()+"="+token);return c.SendAsync(r);}
  [Fact]
  public async Task App_credentials_do_not_authenticate_against_Tech_or_Admin_tables()
  {using var f=new AuthFactory();using var c=f.NewClient();foreach(var app in new[]{"Tech","Admin"})Assert.Equal(HttpStatusCode.Unauthorized,(await Login(c,app)).StatusCode);Assert.Empty(f.Sessions.Items);}

@@ -12,12 +12,12 @@ X-Zumaris-CSRF: 1
 
 ```json
 {
-  "userName": "admin@example.com",
+  "email": "admin@example.com",
   "password": "your-password"
 }
 ```
 
-Use `payload.accessToken` as `Authorization: Bearer <token>` on every protected request. The separate administrator account must be active in `admin_accounts`; selecting Admin does not grant that membership. The backend returns 403 when credentials are correct but membership is missing. Existing `/identity/api/admin/refresh` and `/identity/api/admin/logout` handle the application-specific HttpOnly refresh cookie, with `X-Zumaris-CSRF: 1` and browser credentials enabled. Administrator account creation is now available in Identity; see [administrator accounts](administrator-accounts.md). General role-management remains outside this scope. See [application authentication](application-authentication.md).
+Use `payload.accessToken` as `Authorization: Bearer <token>` on every protected request. The separate administrator account must be active in `admin_accounts`. Login accepts only email/password; the `/api/admin/login` route fixes the application. A matching App/Tech email never grants access. New accounts store normalized email in user_name; JWT/session ownership remains userId. Legacy auth login/register/signup/refresh/logout and admin accounts/bootstrap aliases have been removed. Existing `/identity/api/admin/refresh` and `/identity/api/admin/logout` handle the application-specific HttpOnly refresh cookie, with `X-Zumaris-CSRF: 1` and browser credentials enabled. Administrator account creation is now available in Identity; see [administrator accounts](administrator-accounts.md). General role-management remains outside this scope. See [application authentication](application-authentication.md).
 
 Provider validates both the Admin token context and current administrator access through Identity. App and Tech tokens cannot access these administration routes. Losing administrator membership blocks profile access, downloads, queue access and document decisions even if the old signed token still says Admin.
 
@@ -107,6 +107,6 @@ Header document totals/percentages remain frontend calculations from active `isV
 
 ## Deployment and verification
 
-This request changes only Provider's queue query, profile/list Swagger response metadata and tests. No new database script, Identity login route, role-grant endpoint or duplicated document route is needed. Provider schema 001–004 and the current Identity independent-account reset schema remain prerequisites. Publish **Provider** to deploy the queue correction.
+The original queue correction required only Provider publication. The current architecture additionally uses Identity independent accounts (reset 008) and canonical `/api/admin` registration/login/refresh/logout. For installations that already applied 008 before email-based usernames, apply non-destructive Identity 009 and publish Identity; do not rerun reset 008 for this capacity correction. See [independent accounts](independent-accounts.md) and [administrator accounts](administrator-accounts.md) for full rollout and first-admin setup. Provider schema 001–004 remains required.
 
 Regression coverage exercises draft exclusion, multiple-type deduplication, profile/category retrieval, replacement inclusion despite active verification, superseded-upload exclusion, pagination, old-file download and provider/file mismatch. HTTP checks also verify App/Tech denial and rejection of an Admin-context token without current server membership.

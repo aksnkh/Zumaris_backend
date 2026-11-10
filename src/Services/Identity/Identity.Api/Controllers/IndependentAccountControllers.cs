@@ -79,7 +79,9 @@ public sealed class AdminAccountsController(IAuthService auth,AdministratorAccou
 {
  [HttpPost("register"),AllowAnonymous,ServiceFilter(typeof(AdministratorRegistrationFilter))]
  [ProducesResponseType(typeof(Response<AdministratorAccountResponse>),201)]
- public async Task<IActionResult> Register(SignupRequest input,CancellationToken ct)
+ public async Task<IActionResult> Register(SignupRequest input,
+  [FromHeader(Name="X-Zumaris-Bootstrap-Key"),System.ComponentModel.DataAnnotations.StringLength(512)] string? bootstrapKey=null,
+  CancellationToken ct=default)
  {
   var actor=HttpContext.Items["AdministratorCreator"]as Guid?;
   var result=await accounts.CreateAsync(input,actor,ct);return StatusCode(201,Success(result,201,"Admin account created successfully. Sign in to Admin to continue."));

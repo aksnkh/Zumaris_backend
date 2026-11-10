@@ -88,11 +88,14 @@ public class AdministratorAccountTests
         await Read(await c.PostAsJsonAsync("/api/admin/register",Input()),HttpStatusCode.Conflict);Assert.Single(f.Source.Users.GoogleUsers);
     }
     [Fact]
-    public async Task Swagger_documents_both_new_endpoints_and_the_shared_request_contract()
+    public async Task Swagger_documents_admin_registration_and_optional_bootstrap_header()
     {
         using var f=new Fixture();using var c=f.Client();using var json=JsonDocument.Parse(await c.GetStringAsync("/swagger/v1/swagger.json"));var paths=json.RootElement.GetProperty("paths");
-        Assert.True(paths.TryGetProperty("/api/admin/register",out _));Assert.True(paths.TryGetProperty("/api/admin/register",out _));
+        Assert.True(paths.TryGetProperty("/api/admin/register",out _));
         var response=paths.GetProperty("/api/admin/register").GetProperty("post").GetProperty("responses");Assert.True(response.TryGetProperty("201",out _));
+        var header=Assert.Single(paths.GetProperty("/api/admin/register").GetProperty("post").GetProperty("parameters").EnumerateArray(),x=>x.GetProperty("name").GetString()=="X-Zumaris-Bootstrap-Key");
+        Assert.Equal("header",header.GetProperty("in").GetString());
+        Assert.False(header.TryGetProperty("required",out var required)&&required.GetBoolean());
     }
     private sealed class Fixture:IDisposable
     {

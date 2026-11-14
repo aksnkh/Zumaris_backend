@@ -10,11 +10,17 @@ ALTER TABLE service_requests
     ADD CONSTRAINT ck_service_requests_status
         CHECK (status IN ('Submitted', 'Pending', 'Assigned', 'InProgress', 'Completed', 'Cancelled'));
 
+-- Workbench commonly enables SQL_SAFE_UPDATES. Preserve it for this connection only.
+-- Run this entire script in one connection. If execution stops on an error, run:
+-- ROLLBACK; SET SESSION SQL_SAFE_UPDATES = @zumaris_previous_safe_updates;
+SET @zumaris_previous_safe_updates = @@SESSION.SQL_SAFE_UPDATES;
+SET SESSION SQL_SAFE_UPDATES = 0;
 START TRANSACTION;
 UPDATE service_requests SET status = 'Pending' WHERE status = 'Submitted';
 UPDATE service_request_status_history SET from_status = 'Pending' WHERE from_status = 'Submitted';
 UPDATE service_request_status_history SET to_status = 'Pending' WHERE to_status = 'Submitted';
 COMMIT;
+SET SESSION SQL_SAFE_UPDATES = @zumaris_previous_safe_updates;
 
 ALTER TABLE service_requests
     DROP CHECK ck_service_requests_status,

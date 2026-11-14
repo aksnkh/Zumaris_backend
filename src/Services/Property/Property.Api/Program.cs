@@ -13,6 +13,8 @@ using Zumaris.Property.Infrastructure.Persistence;
 using Zumaris.Property.Infrastructure.Integrations;
 using Zumaris.Property.Api.Controllers;
 
+using Zumaris.BuildingBlocks.Common.Passport;
+using Zumaris.Property.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplicationIsolation("App");
 builder.Configuration.AddJsonFile("appsettings.Local.json",optional:true,reloadOnChange:false)
@@ -26,6 +28,11 @@ builder.Services.AddScoped<IPropertyRepository,PropertyAdoNetRepository>();
 builder.Services.AddScoped<IPropertyService,PropertyService>();
 builder.Services.AddScoped<PropertyExceptionFilter>();
 builder.Services.AddHealthChecks();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient("passport",c=>c.Timeout=TimeSpan.FromSeconds(10)).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
+builder.Services.AddScoped<PassportHttpClient>();
+builder.Services.AddScoped<PassportExceptionFilter>();
+builder.Services.AddScoped<IPassportRepository,PassportRepository>();
 builder.Services.AddHttpClient<IIdentitySessionValidator, IdentitySessionValidator>(client =>
 {
     client.BaseAddress = identityUri;

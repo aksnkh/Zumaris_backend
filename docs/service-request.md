@@ -11,7 +11,7 @@
 - مستقیم: `POST /api/service-requests`
 - از Gateway: `POST https://api.zumaris.com/service-request/api/service-requests`
 
-UserId از claim `sub` توکن معتبر گرفته می‌شود. Status همیشه Submitted، TechnicianId خالی و Version برابر 1 است. ثبت درخواست و رویداد اولیه تاریخچه در یک تراکنش InnoDB انجام می‌شود. کلاینت نمی‌تواند UserId، Status، TechnicianId، PhotoIds یا فیلد ناشناخته دیگری در بدنه ارسال کند.
+UserId از claim `sub` توکن معتبر گرفته می‌شود. Status همیشه Pending، TechnicianId خالی و Version برابر 1 است. ثبت درخواست و رویداد اولیه تاریخچه در یک تراکنش InnoDB انجام می‌شود. کلاینت نمی‌تواند UserId، Status، TechnicianId، PhotoIds یا فیلد ناشناخته دیگری در بدنه ارسال کند.
 
 GET، لیست، ویرایش، لغو، Timeline و آپلود/دریافت تصویر اکنون پیاده‌سازی شده‌اند. هدر Location به GET جزئیات اشاره می‌کند. Retry ثبت اولیه همان پاسخ 201 و شناسه قبلی را برمی‌گرداند.
 
@@ -87,7 +87,7 @@ dotnet publish src/Services/ServiceRequest/ServiceRequest.Api/ServiceRequest.Api
   "title": "Created",
   "payload": {
     "requestId": "شناسه ایجادشده",
-    "status": "Submitted",
+    "status": "Pending",
     "createdAtUtc": "زمان UTC",
     "version": 1
   }
@@ -102,7 +102,7 @@ dotnet publish src/Services/ServiceRequest/ServiceRequest.Api/ServiceRequest.Api
 
 ## بررسی بعد از اجرای SQL توسط شما
 
-با یک کاربر ثبت‌شده Login کنید، POST را با Bearer و Idempotency-Key بفرستید و 201 بگیرید. در service_requests یک ردیف Submitted و در history یک رویداد اولیه باید وجود داشته باشد. همان کلید/بدنه را دوباره بفرستید: شناسه همان و تعداد ردیف‌ها ثابت باشد. بدنه متفاوت باید 409 بدهد. پس از Logout، همان Bearer نباید ثبت جدید انجام دهد. در محیط آزمایشی، شکست درج history باید درج درخواست را هم rollback کند.
+با یک کاربر ثبت‌شده Login کنید، POST را با Bearer و Idempotency-Key بفرستید و 201 بگیرید. در service_requests یک ردیف Pending و در history یک رویداد اولیه باید وجود داشته باشد. همان کلید/بدنه را دوباره بفرستید: شناسه همان و تعداد ردیف‌ها ثابت باشد. بدنه متفاوت باید 409 بدهد. پس از Logout، همان Bearer نباید ثبت جدید انجام دهد. در محیط آزمایشی، شکست درج history باید درج درخواست را هم rollback کند.
 
 
 راهنمای API سوابق خدمات و اسکریپت جدید دیتابیس: [service-history.md](service-history.md).
@@ -122,3 +122,20 @@ Production `ServiceCatalog:BaseUrl` defaults to `http://127.0.0.1:5006/`; Develo
 ## Quotes
 
 Technician quotes, customer acceptance/decline and atomic assignment are documented in [quote API and manual deployment](service-request-quotes.md). Apply migration 005 manually; Provider eligibility must be configured.
+
+## Unified initial status: Pending
+
+`Pending` is the only initial request status in storage, create/detail/list responses,
+request timelines, quote eligibility and technician opportunities. `Submitted` is no
+longer accepted as a request-status filter. Quote and payment statuses are unchanged.
+Service History returns the stored request status without a naming conversion;
+its existing supported filters (All, Completed, Cancelled, Paid) remain unchanged.
+
+For existing databases, back up the ServiceRequest schema, stop ServiceRequest writers,
+then manually apply `database/service-request/007_pending_request_status.sql` after
+migrations 001..006. Deploy the updated API and dependent clients in the same maintenance
+window; old API instances must not run against the migrated schema. The script preserves
+request IDs, versions, timestamps, quote snapshots and audit events; it renames the old
+status in requests and both timeline status columns. Interrupted runs can be rerun.
+Fresh installations use the updated 001/002 checks and should also apply 007 in order.
+Never run migrations automatically at application startup.

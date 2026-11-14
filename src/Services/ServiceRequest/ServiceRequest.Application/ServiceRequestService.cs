@@ -32,7 +32,7 @@ public sealed class ServiceRequestService(
         ServiceRequestRules.ValidateFuture(normalized, now, settings.TimeZoneId);
         var record = new ServiceRequestRecord(Guid.NewGuid(), userId, request.PropertyId, request.CategoryId,
             request.AreaTypeId, normalized.Description, request.Urgency, request.PreferredDate, request.PreferredStartTime,
-            request.PreferredEndTime, settings.TimeZoneId, RequestStatus.Submitted, null, now.UtcDateTime, null, 1);
+            request.PreferredEndTime, settings.TimeZoneId, RequestStatus.Pending, null, now.UtcDateTime, null, 1);
         return await repository.CreateAsync(record, idempotencyKey, hash, cancellationToken);
     }
 

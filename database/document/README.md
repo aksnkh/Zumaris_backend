@@ -1,3 +1,6 @@
 # Document database
 
-Reserved for manual MySQL migration scripts. Planned schema: zumaris_document. No schema or tables have been created. Do not access another service's schema directly.
+Apply the new 001 migration manually to MySQL 8.0.16+. It creates the service-owned schema and tables without changing other services.
+The existing application account needs SELECT/INSERT/UPDATE on its own schema; grants and credentials are not embedded.
+IF NOT EXISTS supports repeat execution of unchanged definitions, not schema repair.
+See [deployment and API contracts](../../docs/frontend-passport-handoff.md).

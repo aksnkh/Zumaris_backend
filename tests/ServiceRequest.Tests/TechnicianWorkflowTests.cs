@@ -35,7 +35,7 @@ public class TechnicianWorkflowTests
   var id=Guid.NewGuid();
   await using(var insert=new MySqlCommand("""
    INSERT INTO service_requests(id,user_id,property_id,category_id,area_type_id,description,urgency,time_zone_id,status,created_at,request_hash)
-   VALUES(@id,@user,@property,1,1,'The kitchen tap is leaking and needs repair.','Emergency','Europe/London','Submitted','2029-01-01',REPEAT('a',64))
+   VALUES(@id,@user,@property,1,1,'The kitchen tap is leaking and needs repair.','Emergency','Europe/London','Pending','2029-01-01',REPEAT('a',64))
    """,db)){insert.Parameters.AddWithValue("@id",id.ToString());insert.Parameters.AddWithValue("@user",f.UserId.ToString());insert.Parameters.AddWithValue("@property",Guid.NewGuid().ToString());await insert.ExecuteNonQueryAsync();}
   try
   {

@@ -4,7 +4,7 @@
 
 | متد | مسیر | کاربرد |
 | --- | --- | --- |
-| GET | `/api/service-requests?status=Submitted&page=1&pageSize=20` | لیست درخواست‌های کاربر، فیلتر اختیاری وضعیت، صفحه‌بندی |
+| GET | `/api/service-requests?status=Pending&page=1&pageSize=20` | لیست درخواست‌های کاربر، فیلتر اختیاری وضعیت، صفحه‌بندی |
 | GET | `/api/service-requests/{id}` | جزئیات و تصاویر |
 | PUT | `/api/service-requests/{id}` | ویرایش کامل اطلاعات قابل تغییر |
 | POST | `/api/service-requests/{id}/cancel` | لغو با دلیل |
@@ -12,7 +12,7 @@
 | POST | `/api/service-requests/{id}/photos` | افزودن یک یا چند تصویر با multipart/form-data |
 | GET | `/api/service-requests/{id}/photos/{photoId}` | دریافت فایل توسط صاحب درخواست |
 
-POST ثبت اولیه نیز مانند قبل برقرار است. جزئیات/ویرایش/لغو خروجی `{ request: { ...fields, version }, photos: [...] }` می‌دهند. لیست شامل `items`, `totalCount`, `page`, `pageSize` است؛ pageSize بین 1 و 100 و page بین 1 و 1000000 است. نام‌های وضعیت Submitted، Assigned، InProgress، Completed و Cancelled هستند؛ فیلتر ناشناخته رد می‌شود. ترتیب لیست createdAtUtc نزولی و سپس شناسه است. تاریخچه با زمان و شناسه مرتب می‌شود و زمان‌ها UTC هستند.
+POST ثبت اولیه نیز مانند قبل برقرار است. جزئیات/ویرایش/لغو خروجی `{ request: { ...fields, version }, photos: [...] }` می‌دهند. لیست شامل `items`, `totalCount`, `page`, `pageSize` است؛ pageSize بین 1 و 100 و page بین 1 و 1000000 است. نام‌های وضعیت Pending، Assigned، InProgress، Completed و Cancelled هستند؛ فیلتر ناشناخته رد می‌شود. ترتیب لیست createdAtUtc نزولی و سپس شناسه است. تاریخچه با زمان و شناسه مرتب می‌شود و زمان‌ها UTC هستند.
 
 ## ۱. اسکریپت دیتابیس — خودتان اجرا کنید
 
@@ -28,9 +28,9 @@ POST ثبت اولیه نیز مانند قبل برقرار است. جزئیا�
 
 از GET جزئیات، `request.version` را بگیرید و همراه PUT، لغو یا آپلود بفرستید. هر تغییر موفق Version را یک واحد بالا می‌برد؛ مقدار قدیمی یا وضعیت نامجاز 409 است. پس از 409 دوباره جزئیات را بخوانید و خودکار با Version حدسی Retry نکنید.
 
-- ویرایش فقط در Submitted مجاز است. بدنه مثل POST ثبت اولیه است، به‌علاوه فیلد `version`. UserId، Status و TechnicianId قابل تغییر توسط این API نیستند.
-- لغو در Submitted یا Assigned مجاز است؛ دلیل پس از Trim باید 3 تا 500 کاراکتر باشد. تغییر وضعیت و درج رویداد Cancelled در یک تراکنش است.
-- افزودن عکس در Submitted یا Assigned مجاز است. تصاویر قبلی پس از لغو همچنان برای صاحب درخواست قابل دریافت‌اند.
+- ویرایش فقط در Pending مجاز است. بدنه مثل POST ثبت اولیه است، به‌علاوه فیلد `version`. UserId، Status و TechnicianId قابل تغییر توسط این API نیستند.
+- لغو در Pending یا Assigned مجاز است؛ دلیل پس از Trim باید 3 تا 500 کاراکتر باشد. تغییر وضعیت و درج رویداد Cancelled در یک تراکنش است.
+- افزودن عکس در Pending یا Assigned مجاز است. تصاویر قبلی پس از لغو همچنان برای صاحب درخواست قابل دریافت‌اند.
 - تخصیص تکنسین یا حرکت به Assigned/InProgress/Completed endpoint عمومی ندارد؛ این وضعیت‌ها برای اتصال workflow سرویس‌های بعدی رزرو شده‌اند. نمی‌توان آن‌ها را با PUT تعیین کرد.
 
 بدنه نمونه لغو:

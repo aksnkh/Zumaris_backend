@@ -8,7 +8,7 @@ namespace Zumaris.ServiceRequests.Infrastructure;
 public sealed class QuoteAdoNetRepository(IConfiguration configuration) : IQuoteRepository
 {
     private readonly string cs=configuration.GetConnectionString("DefaultConnection")??throw new InvalidOperationException("DefaultConnection is required.");
-    private const string Effective="CASE WHEN q.status='Pending' AND (r.status<>'Submitted' OR r.version<>q.request_version) THEN 'Withdrawn' WHEN q.status='Pending' AND q.expires_at IS NOT NULL AND q.expires_at<=@now THEN 'Expired' ELSE q.status END";
+    private const string Effective="CASE WHEN q.status='Pending' AND (r.status<>'Pending' OR r.version<>q.request_version) THEN 'Withdrawn' WHEN q.status='Pending' AND q.expires_at IS NOT NULL AND q.expires_at<=@now THEN 'Expired' ELSE q.status END";
     private static MySqlCommand Cmd(MySqlConnection c,MySqlTransaction? tx,string sql,params(string,object?)[] args)
     {var cmd=new MySqlCommand(sql,c,tx);foreach(var(k,v)in args)cmd.Parameters.AddWithValue(k,v??DBNull.Value);return cmd;}
     private static string? Text(MySqlDataReader r,string n)=>r.IsDBNull(r.GetOrdinal(n))?null:r.GetString(n);
@@ -38,7 +38,7 @@ public sealed class QuoteAdoNetRepository(IConfiguration configuration) : IQuote
         await using var c=new MySqlConnection(cs);await c.OpenAsync(ct);await using var tx=await c.BeginTransactionAsync(IsolationLevel.ReadCommitted,ct);
         var request=await ReadContext(c,tx,requestId,true,ct)??throw new QuoteNotFoundException();
         if(request.UserId==actor||provider.UserId!=actor||!provider.IsVerified||provider.CategoryId!=request.CategoryId)throw new QuoteForbiddenException();
-        if(request.Status!="Submitted")throw new QuoteConflictException("Only Submitted requests can receive quotes.");
+        if(request.Status!="Pending")throw new QuoteConflictException("Only Pending requests can receive quotes.");
         if(request.RequestVersion!=expectedRequestVersion)throw new QuoteConflictException("Request changed while preparing the quote. Reload before trying again.");
         // Release expired/stale pending slots before allowing a replacement.
         await using(var stale=Cmd(c,tx,"""
@@ -103,7 +103,7 @@ public sealed class QuoteAdoNetRepository(IConfiguration configuration) : IQuote
         if(decision!="Withdrawn"&&request.UserId!=actor)throw new QuoteNotFoundException();
         if(quote.Status==decision){await tx.CommitAsync(ct);return decision=="Withdrawn"?quote with {PropertyAddress=null}:quote;}
         if(quote.Status!="Pending")throw new QuoteConflictException("Only a pending, current and unexpired quote can be changed.");
-        if(request.Status!="Submitted")throw new QuoteConflictException("The request is no longer available for this decision.");
+        if(request.Status!="Pending")throw new QuoteConflictException("The request is no longer available for this decision.");
         // ReadOne calculates Withdrawn when the request version changed; no client version is required.
         await using(var update=Cmd(c,tx,"UPDATE service_request_quotes SET status=@status,decided_at=@now,decision_reason=@reason WHERE id=@id AND status='Pending'",("@status",decision),("@now",now),("@reason",decision=="Accepted"?"Customer accepted.":decision=="Declined"?"Customer declined.":"Provider withdrew."),("@id",quoteId.ToString())))
             if(await update.ExecuteNonQueryAsync(ct)!=1)throw new QuoteConflictException("Quote status changed. Reload before trying again.");
@@ -111,12 +111,12 @@ public sealed class QuoteAdoNetRepository(IConfiguration configuration) : IQuote
         {
             await using(var assign=Cmd(c,tx,"""
                 UPDATE service_requests SET status='Assigned',technician_id=@provider,technician_name=@name,updated_at=@now,version=version+1
-                WHERE id=@id AND status='Submitted'
+                WHERE id=@id AND status='Pending'
                 """,("@id",requestId.ToString()),("@provider",quote.ProviderId.ToString()),("@name",quote.ProviderName),("@now",now)))
                 if(await assign.ExecuteNonQueryAsync(ct)!=1)throw new QuoteConflictException("Request is already assigned.");
             await using(var history=Cmd(c,tx,"""
                 INSERT INTO service_request_status_history (id,request_id,from_status,to_status,actor_user_id,occurred_at,reason)
-                VALUES (@id,@request,'Submitted','Assigned',@actor,@now,'Customer accepted a quote.')
+                VALUES (@id,@request,'Pending','Assigned',@actor,@now,'Customer accepted a quote.')
                 """,("@id",Guid.NewGuid().ToString()),("@request",requestId.ToString()),("@actor",actor.ToString()),("@now",now)))await history.ExecuteNonQueryAsync(ct);
             await using(var others=Cmd(c,tx,"UPDATE service_request_quotes SET status='Withdrawn',decided_at=@now,decision_reason='Another quote was accepted.' WHERE request_id=@request AND status='Pending'",("@request",requestId.ToString()),("@now",now)))await others.ExecuteNonQueryAsync(ct);
         }

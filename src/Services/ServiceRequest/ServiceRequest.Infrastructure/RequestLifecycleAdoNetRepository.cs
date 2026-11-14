@@ -74,7 +74,7 @@ public sealed class RequestLifecycleAdoNetRepository(IConfiguration configuratio
     {
         await using var c = await Open(ct); await using var tx = await c.BeginTransactionAsync(ct);
         var current = await Lock(c, tx, userId, requestId, version, ct);
-        if (!RequestStateRules.CanEdit(current.Status)) throw new RequestConflictException("Only Submitted requests can be edited.");
+        if (!RequestStateRules.CanEdit(current.Status)) throw new RequestConflictException("Only Pending requests can be edited.");
         await using var cmd = Command(c, tx, """
             UPDATE service_requests SET
             service_name=CASE WHEN category_id<>@category OR area_type_id<>@area THEN NULL ELSE service_name END,

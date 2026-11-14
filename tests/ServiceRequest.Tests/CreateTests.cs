@@ -17,7 +17,7 @@ public sealed class CreateTests
         client.PostAsJsonAsync("/api/service-requests", request, Json);
 
     [Fact]
-    public async Task Creates_submitted_request_using_authenticated_user_and_returns_201()
+    public async Task Creates_pending_request_using_authenticated_user_and_returns_201()
     {
         using var factory = new RequestFactory(); using var client = factory.Client();
         var input = RequestFactory.Valid();
@@ -25,11 +25,11 @@ public sealed class CreateTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var saved = Assert.Single(factory.Repository.Records).Request;
         Assert.Equal(factory.UserId, saved.UserId); Assert.Equal(input.AreaTypeId, saved.AreaTypeId);
-        Assert.Equal(RequestStatus.Submitted, saved.Status); Assert.Null(saved.TechnicianId);
+        Assert.Equal(RequestStatus.Pending, saved.Status); Assert.Null(saved.TechnicianId);
         Assert.Equal(1, saved.Version); Assert.Equal(DateTimeKind.Utc, saved.CreatedAtUtc.Kind);
         var json = await response.Content.ReadFromJsonAsync<JsonObject>();
         Assert.Equal(saved.RequestId.ToString(), json!["payload"]!["requestId"]!.GetValue<string>());
-        Assert.Equal("Submitted", json["payload"]!["status"]!.GetValue<string>());
+        Assert.Equal("Pending", json["payload"]!["status"]!.GetValue<string>());
         var location = response.Headers.Location!;
         Assert.Equal($"https://api.zumaris.com/service-request/api/service-requests/{saved.RequestId}",
             new Uri(new Uri("https://api.zumaris.com/service-request/api/service-requests"), location).ToString());

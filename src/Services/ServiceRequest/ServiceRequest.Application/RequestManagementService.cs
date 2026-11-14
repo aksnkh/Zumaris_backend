@@ -34,7 +34,7 @@ public sealed class RequestManagementService(IRequestLifecycleRepository reposit
     {
         Version(request.Version);
         var existing = await Owned(userId, requestId, ct);
-        if (!RequestStateRules.CanEdit(existing.Status)) throw new RequestConflictException("Only Submitted requests can be edited.");
+        if (!RequestStateRules.CanEdit(existing.Status)) throw new RequestConflictException("Only Pending requests can be edited.");
         var normalized = ServiceRequestRules.Normalize(request.AsCreate());
         ServiceRequestRules.ValidateFuture(normalized, clock.GetUtcNow(), existing.TimeZoneId);
         var updated = await repository.UpdateAsync(userId, requestId, normalized, request.Version, clock.GetUtcNow().UtcDateTime, ct);
@@ -67,7 +67,7 @@ public sealed class RequestManagementService(IRequestLifecycleRepository reposit
         var request = await Owned(userId, requestId, ct);
         if (request.Version != version) throw new RequestConflictException("Request version has changed. Reload before retrying.");
         if (!RequestStateRules.CanAddPhotos(request.Status))
-            throw new RequestConflictException("Photos can only be added to Submitted or Assigned requests.");
+            throw new RequestConflictException("Photos can only be added to Pending or Assigned requests.");
         if (photos.Count is < 1 or > 8)
             throw new RequestValidationException(new() { ["Photos"] = ["Send 1–8 photos."] });
         if ((await repository.PhotosAsync(userId, [requestId], ct)).Count + photos.Count > 8)

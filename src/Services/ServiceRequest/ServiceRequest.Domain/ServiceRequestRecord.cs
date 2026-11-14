@@ -1,13 +1,13 @@
 namespace Zumaris.ServiceRequests.Domain;
 
 public enum RequestUrgency { Standard, Priority, Emergency }
-public enum RequestStatus { Submitted, Assigned, InProgress, Completed, Cancelled }
+public enum RequestStatus { Pending, Assigned, InProgress, Completed, Cancelled }
 
 public static class RequestStateRules
 {
-    public static bool CanEdit(RequestStatus status) => status == RequestStatus.Submitted;
-    public static bool CanCancel(RequestStatus status) => status is RequestStatus.Submitted or RequestStatus.Assigned;
-    public static bool CanAddPhotos(RequestStatus status) => status is RequestStatus.Submitted or RequestStatus.Assigned;
+    public static bool CanEdit(RequestStatus status) => status == RequestStatus.Pending;
+    public static bool CanCancel(RequestStatus status) => status is RequestStatus.Pending or RequestStatus.Assigned;
+    public static bool CanAddPhotos(RequestStatus status) => status is RequestStatus.Pending or RequestStatus.Assigned;
 }
 
 public sealed record ServiceRequestRecord(

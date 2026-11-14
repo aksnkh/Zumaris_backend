@@ -49,7 +49,7 @@ public sealed class ManagementTests
         var list = await other.GetFromJsonAsync<RequestPage>("/api/service-requests", Json);
         Assert.Empty(list!.Items); Assert.Equal(0, list.TotalCount);
         var events = await owner.GetFromJsonAsync<List<RequestStatusHistoryDto>>($"/api/service-requests/{id}/timeline", Json);
-        Assert.Equal(RequestStatus.Submitted, Assert.Single(events!).ToStatus);
+        Assert.Equal(RequestStatus.Pending, Assert.Single(events!).ToStatus);
     }
 
     [Fact]
@@ -83,8 +83,24 @@ public sealed class ManagementTests
         using var f = new RequestFactory(); using var c = f.Client();
         var first = await Create(f, c); await Create(f, c); await Create(f, c);
         Assert.Equal(HttpStatusCode.OK, (await c.PostAsJsonAsync($"/api/service-requests/{first}/cancel", new { reason = "Changed plans", version = 1 })).StatusCode);
-        var page = await c.GetFromJsonAsync<RequestPage>("/api/service-requests?status=Submitted&page=2&pageSize=1", Json);
+        var page = await c.GetFromJsonAsync<RequestPage>("/api/service-requests?status=Pending&page=2&pageSize=1", Json);
         Assert.Equal(2, page!.TotalCount); Assert.Single(page.Items); Assert.Equal(2, page.Page);
+    }
+
+    [Fact]
+    public async Task Pending_is_consistent_in_details_list_and_timeline_and_legacy_filter_is_rejected()
+    {
+        using var f = new RequestFactory(); using var client = f.Client();
+        var id = await Create(f, client);
+        using var details = await client.GetAsync($"/api/service-requests/{id}");
+        using var body = JsonDocument.Parse(await details.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, details.StatusCode);
+        Assert.Equal("Pending", body.RootElement.GetProperty("request").GetProperty("status").GetString());
+        var page = await client.GetFromJsonAsync<RequestPage>("/api/service-requests?status=Pending", Json);
+        Assert.Equal(RequestStatus.Pending, Assert.Single(page!.Items).Request.Status);
+        var timeline = await client.GetFromJsonAsync<List<RequestStatusHistoryDto>>($"/api/service-requests/{id}/timeline", Json);
+        Assert.Equal(RequestStatus.Pending, Assert.Single(timeline!).ToStatus);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/service-requests?status=Submitted")).StatusCode);
     }
 
     [Fact]

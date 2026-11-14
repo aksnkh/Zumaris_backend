@@ -54,7 +54,7 @@ public sealed class ServiceRequestAdoNetRepository(IConfiguration configuration)
             await using var history = new MySqlCommand("""
                 INSERT INTO service_request_status_history
                 (id, request_id, from_status, to_status, actor_user_id, occurred_at, reason)
-                VALUES (@id, @request, NULL, 'Submitted', @user, @created, NULL)
+                VALUES (@id, @request, NULL, 'Pending', @user, @created, NULL)
                 """, connection, transaction);
             history.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
             history.Parameters.AddWithValue("@request", request.RequestId.ToString());

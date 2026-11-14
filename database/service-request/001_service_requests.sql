@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS service_requests (
     CONSTRAINT ck_service_requests_area CHECK (area_type_id > 0),
     CONSTRAINT ck_service_requests_description CHECK (CHAR_LENGTH(TRIM(description)) BETWEEN 20 AND 500),
     CONSTRAINT ck_service_requests_urgency CHECK (urgency IN ('Standard', 'Priority', 'Emergency')),
-    CONSTRAINT ck_service_requests_status CHECK (status = 'Submitted'),
+    CONSTRAINT ck_service_requests_status CHECK (status = 'Pending'),
     CONSTRAINT ck_service_requests_version CHECK (version > 0),
     CONSTRAINT ck_service_requests_schedule CHECK (
         (urgency = 'Emergency' AND preferred_date IS NULL AND preferred_start_time IS NULL AND preferred_end_time IS NULL)

@@ -121,7 +121,7 @@ public sealed class MemoryRequests : IServiceRequestRepository, IRequestLifecycl
             }
             var persisted = new PersistedRequest(request, hash);
             Records.Add(persisted);
-            History.Add((request.RequestId, new RequestStatusHistoryDto(Guid.NewGuid(), null, RequestStatus.Submitted, request.UserId, request.CreatedAtUtc, null)));
+            History.Add((request.RequestId, new RequestStatusHistoryDto(Guid.NewGuid(), null, RequestStatus.Pending, request.UserId, request.CreatedAtUtc, null)));
             if (key is not null) keys.Add((request.UserId, key), persisted);
             return Task.FromResult(new CreateResult(ServiceRequestService.ToCreated(request), false));
         }
@@ -158,7 +158,7 @@ public sealed class MemoryRequests : IServiceRequestRepository, IRequestLifecycl
         lock (gate)
         {
             var r = Locked(user, id, version);
-            if (r.Status != RequestStatus.Submitted) throw new RequestConflictException("Not editable.");
+            if (r.Status != RequestStatus.Pending) throw new RequestConflictException("Not editable.");
             r = r with { PropertyId = request.PropertyId, CategoryId = request.CategoryId, AreaTypeId = request.AreaTypeId,
                 Description = request.Description, Urgency = request.Urgency, PreferredDate = request.PreferredDate,
                 PreferredStartTime = request.PreferredStartTime, PreferredEndTime = request.PreferredEndTime, Version = version + 1, UpdatedAtUtc = now };
@@ -170,7 +170,7 @@ public sealed class MemoryRequests : IServiceRequestRepository, IRequestLifecycl
         lock (gate)
         {
             var r = Locked(user, id, version);
-            if (r.Status is not (RequestStatus.Submitted or RequestStatus.Assigned)) throw new RequestConflictException("Not cancellable.");
+            if (r.Status is not (RequestStatus.Pending or RequestStatus.Assigned)) throw new RequestConflictException("Not cancellable.");
             History.Add((id, new(Guid.NewGuid(), r.Status, RequestStatus.Cancelled, user, now, reason)));
             r = r with { Status = RequestStatus.Cancelled, Version = version + 1, UpdatedAtUtc = now };
             Replace(r); return Task.FromResult(r);
@@ -185,7 +185,7 @@ public sealed class MemoryRequests : IServiceRequestRepository, IRequestLifecycl
             if (FailOnAttach) throw new IOException("Simulated ambiguous database commit error.");
             if (ConflictOnAttach) throw new RequestConflictException("Simulated concurrent mutation.");
             var r = Locked(user, id, version);
-            if (r.Status is not (RequestStatus.Submitted or RequestStatus.Assigned)) throw new RequestConflictException("Not attachable.");
+            if (r.Status is not (RequestStatus.Pending or RequestStatus.Assigned)) throw new RequestConflictException("Not attachable.");
             var slots = Photos.Where(p => p.RequestId == id).Select(p => p.Slot).ToHashSet();
             if (slots.Count + photos.Count > 8) throw new RequestConflictException("At most 8 photos.");
             foreach (var p in photos)

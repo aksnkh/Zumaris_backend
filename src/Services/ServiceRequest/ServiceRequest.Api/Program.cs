@@ -12,6 +12,7 @@ using Zumaris.ServiceRequests.Application;
 using Zumaris.ServiceRequests.Infrastructure;
 using Zumaris.ServiceRequests.Api.Controllers;
 
+using Zumaris.BuildingBlocks.Common.Passport;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplicationIsolation("App");
 builder.Services.Configure<IISServerOptions>(options => options.MaxRequestBodySize = 44 * 1024 * 1024);
@@ -139,6 +140,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         }
     };
 });
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient("passport",c=>c.Timeout=TimeSpan.FromSeconds(10)).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
+builder.Services.AddScoped<PassportHttpClient>();builder.Services.AddScoped<PassportExceptionFilter>();
+builder.Services.AddScoped<IPropertyActivityRepository,PropertyActivityRepository>();
 builder.Services.AddAuthorization();
 var app = builder.Build();
 if (Encoding.UTF8.GetByteCount(app.Configuration["Jwt:Key"] ?? "") < 32 ||

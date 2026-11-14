@@ -5,7 +5,7 @@ USE zumaris_service_request;
 ALTER TABLE service_requests
     DROP CHECK ck_service_requests_status,
     ADD CONSTRAINT ck_service_requests_status
-        CHECK (status IN ('Submitted', 'Assigned', 'InProgress', 'Completed', 'Cancelled'));
+        CHECK (status IN ('Pending', 'Assigned', 'InProgress', 'Completed', 'Cancelled'));
 
 -- New application operations require SELECT, INSERT and UPDATE on this schema.
 -- Apply grants separately using the real app account/host binding; no credentials are included.

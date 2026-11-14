@@ -10,7 +10,7 @@ public sealed class QuoteService(IQuoteRepository repository,IProviderQuoteEligi
         var request=await repository.ContextAsync(requestId,ct)??throw new QuoteNotFoundException();
         if(request.UserId==actor)throw new QuoteForbiddenException();
         await providers.GetAsync(actor,request.CategoryId,bearer,ct);
-        if(request.Status!="Submitted")throw new QuoteConflictException("Only Submitted requests can receive quotes.");
+        if(request.Status!="Pending")throw new QuoteConflictException("Only Pending requests can receive quotes.");
         var labels=await display.GetAsync(request.CategoryId,request.AreaTypeId,bearer,ct);
         return new(request.RequestId,request.RequestNumber,request.CategoryId,request.AreaTypeId,request.Description,labels.CategoryName??request.CategoryName,
             labels.AreaName??request.AreaName,request.PreferredDate,request.PreferredStartTime,request.PreferredEndTime,request.TimeZoneId);

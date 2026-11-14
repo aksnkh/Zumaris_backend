@@ -2,7 +2,7 @@
 
 # ساختار سرویس‌های Zumaris
 
-تمام سرویس‌ها در همین Monorepo و `Zumaris.sln` هستند. Identity، ServiceRequest، Property و ServiceCatalog پیاده‌سازی دارند؛ Provider نیز هویت حرفه‌ای و بررسی صلاحیت لازم برای Quote دارد. Provider اکنون ثبت مدارک، بررسی ادمین و نظر مشتری دارد؛ ServiceRequest گردش اجرای کار را دارد؛ Billing فقط مرحلهٔ ثبت درخواست پرداخت را دارد و اتصال واقعی درگاه خارج از محدوده است. شش سرویس دیگر فعلاً اسکلت قابل build هستند. ایجاد اسکلت به معنی آماده‌بودن قابلیت کسب‌وکار یا انتشار روی IIS نیست.
+تمام سرویس‌ها در همین Monorepo و `Zumaris.sln` هستند. Identity، ServiceRequest، Property و ServiceCatalog پیاده‌سازی دارند؛ Provider نیز هویت حرفه‌ای و بررسی صلاحیت لازم برای Quote دارد. Provider اکنون ثبت مدارک، بررسی ادمین و نظر مشتری دارد؛ ServiceRequest گردش اجرای کار را دارد؛ Billing فقط مرحلهٔ ثبت درخواست پرداخت را دارد و اتصال واقعی درگاه خارج از محدوده است. Document و Maintenance اکنون APIهای اسناد و تجهیزات ملک دارند و Property دارای اتاق‌ها، مساحت، رویداد دستی و Timeline تجمیعی است. چهار سرویس دیگر فعلاً اسکلت قابل build هستند. ایجاد اسکلت به معنی آماده‌بودن قابلیت کسب‌وکار یا انتشار روی IIS نیست.
 
 ## محل هر قابلیت
 
@@ -10,18 +10,18 @@
 | --- | --- | --- | --- |
 | Identity | حساب، ورود، Google، نشست، نقش عمومی سامانه | `/identity`، فعال | `zumaris_identity` |
 | Property | مشخصات و آدرس ملک، ارتباط کاربران، تاریخ ارتباط‌ها، نمای Home Passport و Timeline تجمیعی ملک | `/property`، فعال | `zumaris_property` |
-| Document | اسناد ملک، گواهی‌ها، ضمانت‌نامه‌ها، نسخه‌های سند و تاریخ انقضا | `/document`، رزرو | `zumaris_document` |
-| Maintenance | تجهیزات ملک، مشخصات دستگاه، کار و برنامهٔ نگهداری و موعد سرویس | `/maintenance`، رزرو | `zumaris_maintenance` |
+| Document | اسناد ملک، گواهی‌ها، ضمانت‌نامه‌ها، نسخه‌های سند و تاریخ انقضا | `/document`، فعال | `zumaris_document` |
+| Maintenance | تجهیزات ملک، مشخصات دستگاه، کار و برنامهٔ نگهداری و موعد سرویس | `/maintenance`، فعال | `zumaris_maintenance` |
 | ServiceRequest | سفارش خدمت، تصاویر سفارش، وضعیت اجرا، تخصیص متخصص، پیشنهاد قیمت، زمان‌بندی و History درخواست | `/service-request`، فعال | `zumaris_service_request` |
 | ServiceCatalog | دسته و نوع خدمت، گزینه‌های فضای خانه، مشخصات لازم هر خدمت | `/service-catalog`، فعال | `zumaris_service_catalog` |
 | Provider | متخصص و شرکت، مهارت، پوشش جغرافیایی، مدارک حرفه‌ای، نمونه‌کار و ارزیابی | `/provider`، فعال | `zumaris_provider` |
-| Billing | پلن، اشتراک، پرداخت، بازپرداخت، صورتحساب مالی و کمیسیون | `/billing`، رزرو | `zumaris_billing` |
+| Billing | پلن، اشتراک، پرداخت، بازپرداخت، صورتحساب مالی و کمیسیون | `/billing`، فعال | `zumaris_billing` |
 | Notification | قالب پیام، ترجیحات دریافت، ارسال ایمیل/پیامک/اعلان و نتیجهٔ ارسال | `/notification`، رزرو | `zumaris_notification` |
 | PropertyIntelligence | امتیاز سلامت، تحلیل سند، پیشنهاد نگهداری، تخمین هزینه و دستیار هوشمند | `/property-intelligence`، رزرو | `zumaris_property_intelligence` |
 | WebsiteBuilder | سایت متخصصان، قالب و محتوا، انتشار و دامنه | `/website-builder`، رزرو | `zumaris_website_builder` |
 | Integration | اتصال به سامانه‌های بیرونی بیمه، اطلاعات رسمی ملک و سایر شرکا | `/integration`، رزرو | `zumaris_integration` |
 
-اسکیماهای سرویس‌های خالی فقط نام پیشنهادی هستند. اسکریپت دستی Property در database/property/001_properties.sql و راهنمای راه‌اندازی آن در [property.md](property.md) است. Gateway مسیرهای Identity، ServiceRequest، Property، ServiceCatalog و Provider را مسیریابی می‌کند.
+اسکیماهای سرویس‌های خالی فقط نام پیشنهادی هستند. اسکریپت دستی Property در database/property/001_properties.sql و راهنمای راه‌اندازی آن در [property.md](property.md) است. Gateway مسیرهای Identity، ServiceRequest، Property، ServiceCatalog، Provider، Billing، Document و Maintenance را مسیریابی می‌کند.
 
 Home Passport نمای اطلاعات چند سرویس است و مشخصات ملک را دوباره ذخیره نمی‌کند. Admin سرویس مستقل نیست؛ endpoint مدیریتی هر حوزه در سرویس مالک آن قرار می‌گیرد. Booking فعلاً در ServiceRequest و Review/Trust Score در Provider قرار می‌گیرند. Home DNA، HomeGraph و Digital Twin در شروع قابلیت‌های PropertyIntelligence هستند. Notification صاحب ارسال پیام است، ولی موعد نگهداری را Maintenance تعیین می‌کند. تجهیزات و اطلاعات ضمانت آن‌ها با Maintenance است و فایل مدرک ضمانت با Document. عکس سفارش در ServiceRequest باقی می‌ماند.
 
@@ -67,7 +67,7 @@ src
 | WebsiteBuilder | 5115 | 5011 |
 | Integration | 5116 | 5012 |
 
-Swagger در `/swagger` و سند آن در `/swagger/v1/swagger.json` است. شش سرویس خالی هنوز عملیات کسب‌وکار ندارند؛ Property دارای CRUD است و ابتدا تنظیمات محلی/JWT آن را مطابق راهنمای اختصاصی آماده کنید. مسیر `/health` فقط زنده‌بودن پردازه را نشان می‌دهد و به معنی آماده‌بودن دیتابیس، احراز هویت یا قابلیت محصول نیست. تنظیم CORS فعلاً همان `https://app.zumaris.com` است.
+Swagger در `/swagger` و سند آن در `/swagger/v1/swagger.json` است. چهار سرویس خالی هنوز عملیات کسب‌وکار ندارند؛ Property دارای CRUD است و ابتدا تنظیمات محلی/JWT آن را مطابق راهنمای اختصاصی آماده کنید. مسیر `/health` فقط زنده‌بودن پردازه را نشان می‌دهد و به معنی آماده‌بودن دیتابیس، احراز هویت یا قابلیت محصول نیست. CORS برای `https://app.zumaris.com`، `https://tech.zumaris.com` و `https://admin.zumaris.com` با Credentials تنظیم می‌شود.
 
 پیش از انتشار اولین endpoint واقعی هر سرویس، احراز هویت JWT و اعتبارسنجی نشست Identity، مجوزهای منابع، اسکریپت دستی دیتابیس، تنظیمات محرمانهٔ سرور و در صورت نیاز route و Swagger Gateway را تکمیل می‌کنیم. پورت‌های IIS جدول فقط رزرو پیشنهادی‌اند و سایت یا Binding جدیدی ایجاد نشده است.
 
@@ -92,3 +92,5 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Initialize-Service
 اجرای مجدد فقط فایل‌های موجودنبوده و عضویت‌های ناقص Solution را ایجاد می‌کند؛ فایل فعلی را بازنویسی نمی‌کند. Identity و ServiceRequest در فهرست تولید نیستند و کد آن‌ها تغییر نمی‌کند. تعریف ده سرویس جدید در `scripts/service-scaffolds.json` قرار دارد. این ابزار دیتابیس، endpoint کسب‌وکار، دادهٔ آزمایشی، مسیر Gateway یا استقرار سرور ایجاد نمی‌کند.
 
 </div>
+
+راهنمای فعال‌سازی و قراردادهای تجهیزات/اسناد/Timeline ملک: [frontend-passport-handoff.md](frontend-passport-handoff.md).

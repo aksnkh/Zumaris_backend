@@ -20,7 +20,7 @@ public sealed class TechnicianWorkRepository(IConfiguration configuration):ITech
   if(categories.Count==0)return new([],page,size,0);
   await using var c=await Open(ct);await using var tx=await c.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct);
   var names=categories.Distinct().Select((_,i)=>"@cat"+i).ToArray();
-  string filter="status='Submitted' AND user_id<>@actor AND category_id IN ("+string.Join(',',names)+")";
+  string filter="status='Pending' AND user_id<>@actor AND category_id IN ("+string.Join(',',names)+")";
   MySqlCommand Query(string sql)
   {
    var cmd=Cmd(c,tx,sql,("@actor",actor.ToString()),("@size",size),("@offset",(long)(page-1)*size));var list=categories.Distinct().ToArray();for(int i=0;i<names.Length;i++)cmd.Parameters.AddWithValue(names[i],list[i]);return cmd;

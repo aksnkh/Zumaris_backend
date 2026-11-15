@@ -10,7 +10,7 @@ public sealed class PassportHttpClient(IHttpClientFactory factory, IHttpContextA
     private static readonly System.Text.Json.JsonSerializerOptions Json = new(System.Text.Json.JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
     public async Task<T> GetAsync<T>(string service, string path, CancellationToken ct)
     {
-        var uri = new Uri(config[service + ":BaseUrl"] ?? service switch { "Property" => "http://127.0.0.1:5003/", "Maintenance" => "http://127.0.0.1:5005/", "Document" => "http://127.0.0.1:5004/", "ServiceRequest" => "http://127.0.0.1:5002/", _ => throw new InvalidOperationException("Unknown service.") });
+        var uri = new Uri(config[service + ":BaseUrl"] ?? service switch { "ServiceCatalog" => "http://127.0.0.1:5006/", "Property" => "http://127.0.0.1:5003/", "Maintenance" => "http://127.0.0.1:5005/", "Document" => "http://127.0.0.1:5004/", "ServiceRequest" => "http://127.0.0.1:5002/", _ => throw new InvalidOperationException("Unknown service.") });
         if (!uri.IsAbsoluteUri || !string.IsNullOrEmpty(uri.UserInfo) || !uri.AbsoluteUri.EndsWith('/') || !(uri.Scheme == "https" || uri.Scheme == "http" && uri.IsLoopback)) throw new InvalidOperationException("Service URLs must use HTTPS or loopback HTTP and a trailing slash.");
         using var req = new HttpRequestMessage(HttpMethod.Get, new Uri(uri, path));
         req.Headers.TryAddWithoutValidation("Authorization", accessor.HttpContext!.Request.Headers.Authorization.ToString());

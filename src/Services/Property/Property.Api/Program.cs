@@ -33,6 +33,7 @@ builder.Services.AddHttpClient("passport",c=>c.Timeout=TimeSpan.FromSeconds(10))
 builder.Services.AddScoped<PassportHttpClient>();
 builder.Services.AddScoped<PassportExceptionFilter>();
 builder.Services.AddScoped<IPassportRepository,PassportRepository>();
+builder.Services.AddScoped<RoomIcons>();
 builder.Services.AddHttpClient<IIdentitySessionValidator, IdentitySessionValidator>(client =>
 {
     client.BaseAddress = identityUri;

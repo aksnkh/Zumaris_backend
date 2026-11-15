@@ -200,3 +200,18 @@ and a test-only Identity session stub. It checks CRUD, persistence across proces
 bytes, property/role/creator isolation, metadata validation, source aggregation, real zero counts,
 revoked sessions, dependency outages and gateway routes. It does not test a real PayPal service,
 production Identity deployment, production database migrations or health scoring.
+
+## Room area icons
+
+Room list/detail/create/update payloads now include nullable `iconUrl` on each room,
+next to `roomId`/`propertyId`/`details`. It is read from ServiceCatalog's current area
+icons through its API, using the agreed stable area ID for each room type; it is
+not inferred from the user-entered room name, stored in Property, or accepted in input.
+Example: `{ "roomId":"guid", "details":{"name":"Main kitchen","type":"Kitchen"}, "iconUrl":"/service-catalog/api/areas/icons/1.png" }`.
+The URL is relative to the API origin; resolve against the API/Gateway base URL when
+frontend and API origins differ. Unmapped/missing icons return null. A temporary
+catalog outage leaves room reads available with null icons. One lookup is made per
+nonempty response page. Configure Property `ServiceCatalog:BaseUrl` (production default
+`http://127.0.0.1:5006/`, development `http://127.0.0.1:5110/`). Publish Property.Api;
+no database migration or new Gateway route is required. ServiceCatalog's existing
+area-icon configuration/files must already be available.

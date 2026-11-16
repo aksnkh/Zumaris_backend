@@ -31,11 +31,17 @@ public sealed class PassportController(IPropertyRepository properties, IPassport
     public async Task<IActionResult> Metrics(Guid propertyId, CancellationToken ct)
     {
         await Access(propertyId, false, ct);
+        var health = ReadHealth(propertyId, ct);
         var eq = http.GetAsync<Response<JsonElement>>("Maintenance", $"api/properties/{propertyId}/equipment?pageSize=1", ct);
         var doc = http.GetAsync<Response<JsonElement>>("Document", $"api/properties/{propertyId}/documents?pageSize=1", ct);
         var service = http.GetAsync<Response<JsonElement>>("ServiceRequest", $"api/properties/{propertyId}/service-summary", ct);
-        await Task.WhenAll(eq, doc, service); var rooms = await repo.Rooms(propertyId, 1, 1, false, ct); var profile = await repo.Profile(propertyId, ct);
-        return Ok(PassportResponse.Of(new { propertyId, healthScore = (int?)null, healthScoreStatus = "NotConfigured", equipmentCount = eq.Result.Payload.GetProperty("totalCount").GetInt64(), documentCount = doc.Result.Payload.GetProperty("totalCount").GetInt64(), roomCount = rooms.Total, profile.FloorAreaSquareMetres, serviceSummary = service.Result.Payload }));
+        await Task.WhenAll(eq, doc, service, health); var rooms = await repo.Rooms(propertyId, 1, 1, false, ct); var profile = await repo.Profile(propertyId, ct);
+        return Ok(PassportResponse.Of(new { propertyId, healthScore = health.Result?.GetProperty("healthScore").ValueKind == JsonValueKind.Number ? health.Result.Value.GetProperty("healthScore").GetInt32() : (int?)null, healthScoreStatus = health.Result?.GetProperty("status").GetString() ?? "Unavailable", healthScoreDetails = health.Result, equipmentCount = eq.Result.Payload.GetProperty("totalCount").GetInt64(), documentCount = doc.Result.Payload.GetProperty("totalCount").GetInt64(), roomCount = rooms.Total, profile.FloorAreaSquareMetres, serviceSummary = service.Result.Payload }));
+    }
+    private async Task<JsonElement?> ReadHealth(Guid propertyId, CancellationToken ct)
+    {
+        try { return (await http.GetAsync<Response<JsonElement>>("PropertyIntelligence", $"api/properties/{propertyId}/health-score", ct)).Payload; }
+        catch (PassportException ex) when (ex.Status is 503 or 404) { ct.ThrowIfCancellationRequested(); return null; }
     }
     [HttpGet("timeline")]
     public async Task<IActionResult> Timeline(Guid propertyId, [FromQuery] EventQuery query, string? source = null, CancellationToken ct = default)

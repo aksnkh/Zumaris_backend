@@ -8,7 +8,7 @@ ROOT=pathlib.Path(__file__).resolve().parents[1]
 container='zumaris-passport-'+uuid.uuid4().hex[:10]
 processes={}; logs={}; tests=0; revoked=set(); identity_status=204
 KEY=secrets.token_urlsafe(48)
-ports={'Property':15107,'Document':15108,'Maintenance':15109,'ServiceRequest':15106,'Identity':15105,'Gateway':15039}
+ports={'Property':15107,'Document':15108,'Maintenance':15109,'ServiceRequest':15106,'Identity':15105,'Gateway':15039,'PropertyIntelligence':15114}
 user=str(uuid.uuid4()); other=str(uuid.uuid4()); reader=str(uuid.uuid4())
 def token(who=user,app='App'):
  def enc(x):return base64.urlsafe_b64encode(json.dumps(x,separators=(',',':')).encode()).rstrip(b'=').decode()
@@ -46,9 +46,11 @@ def start(service,baseenv,folder):
  env=baseenv.copy();env['ASPNETCORE_URLS']=f'http://127.0.0.1:{ports[service]}'
  if service=='Gateway':
   project=ROOT/'src/Gateways/YarpGateway';assembly='YarpGateway'
-  for name in ['Property','Maintenance','Document','ServiceRequest']:env[f'ReverseProxy__Clusters__{name.lower() if name!="ServiceRequest" else "service-request"}-cluster__Destinations__{name.lower() if name!="ServiceRequest" else "service-request"}-srv__Address']=f'http://127.0.0.1:{ports[name]}'
+  for name in ['Property','Maintenance','Document','ServiceRequest','PropertyIntelligence']:
+   route={'ServiceRequest':'service-request','PropertyIntelligence':'property-intelligence'}.get(name,name.lower())
+   env[f'ReverseProxy__Clusters__{route}-cluster__Destinations__{route}-srv__Address']=f'http://127.0.0.1:{ports[name]}'
  else:
-  route={'ServiceRequest':'service_request'}.get(service,service.lower());env['ConnectionStrings__DefaultConnection']=f'Server=127.0.0.1;Port=33306;Database=zumaris_{route};User ID=passport_test;AllowPublicKeyRetrieval=True;SSL Mode=None'
+  route={'ServiceRequest':'service_request','PropertyIntelligence':'property_intelligence'}.get(service,service.lower());env['ConnectionStrings__DefaultConnection']=f'Server=127.0.0.1;Port=33306;Database=zumaris_{route};User ID=passport_test;AllowPublicKeyRetrieval=True;SSL Mode=None'
   project=ROOT/f'src/Services/{service}/{service}.Api';assembly=f'{service}.Api'
  log=open(pathlib.Path(folder)/(service+'.log'),'w');logs[service]=log
  dotnet=os.environ.get('DOTNET_ROOT','/workspace/.dotnet')+'/dotnet'
@@ -85,15 +87,15 @@ if __name__=='__main__':
      subprocess.run(['docker','exec',container,'mysqladmin','-h127.0.0.1','ping','--silent'],check=True,capture_output=True);break
     except (RuntimeError,subprocess.CalledProcessError):pass
    time.sleep(1)
-  migrations=['property/001_properties.sql','property/002_passport.sql','maintenance/001_property_equipment.sql','document/001_property_documents.sql','service-request/001_service_requests.sql','service-request/002_request_lifecycle.sql','service-request/003_service_history.sql','service-request/008_property_activity_index.sql']
+  migrations=['property/001_properties.sql','property/002_passport.sql','maintenance/001_property_equipment.sql','document/001_property_documents.sql','service-request/001_service_requests.sql','service-request/002_request_lifecycle.sql','service-request/003_service_history.sql','service-request/008_property_activity_index.sql','property-intelligence/001_health_scores.sql']
   for name in migrations:sql((ROOT/'database'/name).read_text())
   # New scripts are additive and repeatable.
-  for name in ['property/002_passport.sql','maintenance/001_property_equipment.sql','document/001_property_documents.sql','service-request/008_property_activity_index.sql']:sql((ROOT/'database'/name).read_text())
-  sql("CREATE USER 'passport_test'@'%' IDENTIFIED BY '';"+''.join(f'GRANT SELECT,INSERT,UPDATE ON zumaris_{x}.* TO \'passport_test\'@\'%\';' for x in ['property','maintenance','document','service_request']))
+  for name in ['property/002_passport.sql','maintenance/001_property_equipment.sql','document/001_property_documents.sql','service-request/008_property_activity_index.sql','property-intelligence/001_health_scores.sql']:sql((ROOT/'database'/name).read_text())
+  sql("CREATE USER 'passport_test'@'%' IDENTIFIED BY '';"+''.join(f'GRANT SELECT,INSERT,UPDATE ON zumaris_{x}.* TO \'passport_test\'@\'%\';' for x in ['property','maintenance','document','service_request','property_intelligence']))
   with tempfile.TemporaryDirectory(prefix='passport-api-') as folder:
    env=os.environ.copy();env.update({'ASPNETCORE_ENVIRONMENT':'Development','Jwt__Key':KEY,'Jwt__Issuer':'passport-tests','Jwt__Audience':'passport-tests','Documents__RootPath':folder+'/files','Storage__RootPath':folder+'/request-photos','DOTNET_CLI_TELEMETRY_OPTOUT':'1'})
-   for n in ['Identity','Property','Maintenance','Document','ServiceRequest']:env[n+'__BaseUrl']=f'http://127.0.0.1:{ports[n]}/'
-   for n in ['Property','Maintenance','Document','ServiceRequest','Gateway']:start(n,env,folder)
+   for n in ['Identity','Property','Maintenance','Document','ServiceRequest','PropertyIntelligence']:env[n+'__BaseUrl']=f'http://127.0.0.1:{ports[n]}/'
+   for n in ['Property','Maintenance','Document','ServiceRequest','PropertyIntelligence','Gateway']:start(n,env,folder)
    property_body={'addressLine':'12 Example Road','postcode':'SW1A 1AA','city':'London','countryCode':'GB','propertyType':'Detached','bedrooms':2,'bathrooms':1,'ownershipRole':'Owner'}
    p=call('Property','api/properties','POST',property_body,expected=201)['propertyId']
    p2=call('Property','api/properties','POST',property_body,t=other_token,expected=201)['propertyId']
@@ -149,6 +151,44 @@ if __name__=='__main__':
    assert payload('Property',base+'/timeline?type=DocumentUploaded')['totalCount']==2
    assert payload('Property',base+'/timeline?source=Manual&from=2026-01-01T06:00:00Z&to=2026-01-01T07:00:00Z')['totalCount']==1
    page1=payload('Property',base+'/timeline?pageSize=2');page2=payload('Property',base+'/timeline?pageNumber=2&pageSize=2');assert not({e['eventId'] for e in page1['items']}&{e['eventId'] for e in page2['items']})
+   # Health Score: real evidence, explicit self-report inventory, audit and saved calculation.
+   healthpath=base+'/health-score'
+   missing=payload('PropertyIntelligence',healthpath);assert missing['healthScore'] is None and missing['status']=='InsufficientData'
+   for actor in [other_token,None,token(user,'Tech')]:
+    call('PropertyIntelligence',healthpath,t=actor,expected=404 if actor==other_token else 401 if actor is None else 403)
+   call('PropertyIntelligence',healthpath+'/assessment','PUT',{},t=reader_token,expected=403)
+   assert payload('PropertyIntelligence',healthpath+'/options')['weights']=={'Safety':.35,'Equipment':.30,'Maintenance':.25,'Issues':.10}
+   today=datetime.datetime.now(datetime.timezone.utc).date()
+   future=(today+datetime.timedelta(days=90)).isoformat()
+   payload('Document',base+'/documents/'+did,'PUT',{'title':'Health safety certificate','type':'Certificate','expiresOn':future})
+   equipment['serviceRequestIds']=[];equipment['lastServicedOn']=None;equipment['nextServiceOn']=future
+   payload('Maintenance',base+'/equipment/'+eq,'PUT',equipment)
+   checks=[{'code':code,'applicability':'Required','review':'Satisfactory','documentId':did} if code=='ElectricalSafety' else {'code':code,'applicability':'NotApplicable','notApplicableReason':'Not applicable to this test property.'} for code in ['ElectricalSafety','GasSafety','EnergyPerformance','Insurance']]
+   assessment={'safetyInventoryComplete':True,'equipmentInventoryComplete':True,'issueInventoryComplete':True,'safetyChecks':checks,'issues':[],'serviceNotRequiredEquipmentIds':[]}
+   call('PropertyIntelligence',healthpath+'/assessment','PUT',{**assessment,'safetyChecks':checks[:1]},expected=400)
+   badchecks=[{**c,'documentId':str(uuid.uuid4())} if c['code']=='ElectricalSafety' else c for c in checks]
+   call('PropertyIntelligence',healthpath+'/assessment','PUT',{**assessment,'safetyChecks':badchecks},expected=400)
+   payload('PropertyIntelligence',healthpath+'/assessment','PUT',assessment)
+   full=payload('PropertyIntelligence',healthpath);assert full['healthScore']==100 and full['dataCoveragePercent']==100 and full['assessmentSource']=='SelfReported',full
+   assert payload('Property',base+'/passport/metrics')['healthScore']==100
+   assert payload('Gateway','property-intelligence/'+healthpath)['healthScore']==100
+   payload('PropertyIntelligence',healthpath+'/calculate','POST')
+   assert sql('SELECT COUNT(*) FROM zumaris_property_intelligence.health_score_calculations;')=='1'
+   assert sql('SELECT COUNT(*) FROM zumaris_property_intelligence.health_assessment_history;')=='1'
+   stop('PropertyIntelligence');start('PropertyIntelligence',env,folder)
+   assert payload('PropertyIntelligence',healthpath)['healthScore']==100
+   # A metadata change invalidates the old safety review; it must not return a stale score.
+   expired=(today-datetime.timedelta(days=1)).isoformat()
+   payload('Document',base+'/documents/'+did,'PUT',{'title':'Expired certificate','type':'Certificate','expiresOn':expired})
+   stale=payload('PropertyIntelligence',healthpath);assert stale['healthScore'] is None and stale['criticalAlerts']
+   payload('PropertyIntelligence',healthpath+'/assessment','PUT',assessment)
+   low=payload('PropertyIntelligence',healthpath);assert low['healthScore']==65 and low['criticalAlerts'],low
+   issue={'issueId':str(uuid.uuid4()),'title':'Self-reported critical defect','severity':'Critical','openedOn':today.isoformat()}
+   payload('PropertyIntelligence',healthpath+'/assessment','PUT',{**assessment,'issues':[issue]})
+   critical=payload('PropertyIntelligence',healthpath);assert critical['healthScore']==59 and any(a['code']=='CRITICAL_OPEN_ISSUE' for a in critical['criticalAlerts'])
+   revoked.add(owner_token);call('PropertyIntelligence',healthpath,expected=401);revoked.clear()
+   stop('PropertyIntelligence');unavailable=payload('Property',base+'/passport/metrics');assert unavailable['healthScore'] is None and unavailable['healthScoreStatus']=='Unavailable'
+   start('PropertyIntelligence',env,folder)
    # Gateway exposes both newly activated services.
    assert payload('Gateway','maintenance/'+base+'/equipment')['totalCount']==1
    assert call('Gateway','document/'+fileurl,raw=True)==content

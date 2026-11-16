@@ -2,7 +2,7 @@
 
 # ساختار سرویس‌های Zumaris
 
-تمام سرویس‌ها در همین Monorepo و `Zumaris.sln` هستند. Identity، ServiceRequest، Property و ServiceCatalog پیاده‌سازی دارند؛ Provider نیز هویت حرفه‌ای و بررسی صلاحیت لازم برای Quote دارد. Provider اکنون ثبت مدارک، بررسی ادمین و نظر مشتری دارد؛ ServiceRequest گردش اجرای کار را دارد؛ Billing فقط مرحلهٔ ثبت درخواست پرداخت را دارد و اتصال واقعی درگاه خارج از محدوده است. Document و Maintenance اکنون APIهای اسناد و تجهیزات ملک دارند و Property دارای اتاق‌ها، مساحت، رویداد دستی و Timeline تجمیعی است. چهار سرویس دیگر فعلاً اسکلت قابل build هستند. ایجاد اسکلت به معنی آماده‌بودن قابلیت کسب‌وکار یا انتشار روی IIS نیست.
+تمام سرویس‌ها در همین Monorepo و `Zumaris.sln` هستند. Identity، ServiceRequest، Property و ServiceCatalog پیاده‌سازی دارند؛ Provider نیز هویت حرفه‌ای و بررسی صلاحیت لازم برای Quote دارد. Provider اکنون ثبت مدارک، بررسی ادمین و نظر مشتری دارد؛ ServiceRequest گردش اجرای کار را دارد؛ Billing فقط مرحلهٔ ثبت درخواست پرداخت را دارد و اتصال واقعی درگاه خارج از محدوده است. Document و Maintenance اکنون APIهای اسناد و تجهیزات ملک دارند و Property دارای اتاق‌ها، مساحت، رویداد دستی و Timeline تجمیعی است. PropertyIntelligence نیز Health Score خوداظهاری را محاسبه می‌کند. سه سرویس دیگر فعلاً اسکلت قابل build هستند. ایجاد اسکلت به معنی آماده‌بودن قابلیت کسب‌وکار یا انتشار روی IIS نیست.
 
 ## محل هر قابلیت
 
@@ -17,7 +17,7 @@
 | Provider | متخصص و شرکت، مهارت، پوشش جغرافیایی، مدارک حرفه‌ای، نمونه‌کار و ارزیابی | `/provider`، فعال | `zumaris_provider` |
 | Billing | پلن، اشتراک، پرداخت، بازپرداخت، صورتحساب مالی و کمیسیون | `/billing`، فعال | `zumaris_billing` |
 | Notification | قالب پیام، ترجیحات دریافت، ارسال ایمیل/پیامک/اعلان و نتیجهٔ ارسال | `/notification`، رزرو | `zumaris_notification` |
-| PropertyIntelligence | امتیاز سلامت، تحلیل سند، پیشنهاد نگهداری، تخمین هزینه و دستیار هوشمند | `/property-intelligence`، رزرو | `zumaris_property_intelligence` |
+| PropertyIntelligence | امتیاز سلامت، تحلیل سند، پیشنهاد نگهداری، تخمین هزینه و دستیار هوشمند | `/property-intelligence`، فعال | `zumaris_property_intelligence` |
 | WebsiteBuilder | سایت متخصصان، قالب و محتوا، انتشار و دامنه | `/website-builder`، رزرو | `zumaris_website_builder` |
 | Integration | اتصال به سامانه‌های بیرونی بیمه، اطلاعات رسمی ملک و سایر شرکا | `/integration`، رزرو | `zumaris_integration` |
 
@@ -67,7 +67,7 @@ src
 | WebsiteBuilder | 5115 | 5011 |
 | Integration | 5116 | 5012 |
 
-Swagger در `/swagger` و سند آن در `/swagger/v1/swagger.json` است. چهار سرویس خالی هنوز عملیات کسب‌وکار ندارند؛ Property دارای CRUD است و ابتدا تنظیمات محلی/JWT آن را مطابق راهنمای اختصاصی آماده کنید. مسیر `/health` فقط زنده‌بودن پردازه را نشان می‌دهد و به معنی آماده‌بودن دیتابیس، احراز هویت یا قابلیت محصول نیست. CORS برای `https://app.zumaris.com`، `https://tech.zumaris.com` و `https://admin.zumaris.com` با Credentials تنظیم می‌شود.
+Swagger در `/swagger` و سند آن در `/swagger/v1/swagger.json` است. سه سرویس خالی هنوز عملیات کسب‌وکار ندارند؛ Property دارای CRUD است و ابتدا تنظیمات محلی/JWT آن را مطابق راهنمای اختصاصی آماده کنید. مسیر `/health` فقط زنده‌بودن پردازه را نشان می‌دهد و به معنی آماده‌بودن دیتابیس، احراز هویت یا قابلیت محصول نیست. CORS برای `https://app.zumaris.com`، `https://tech.zumaris.com` و `https://admin.zumaris.com` با Credentials تنظیم می‌شود.
 
 پیش از انتشار اولین endpoint واقعی هر سرویس، احراز هویت JWT و اعتبارسنجی نشست Identity، مجوزهای منابع، اسکریپت دستی دیتابیس، تنظیمات محرمانهٔ سرور و در صورت نیاز route و Swagger Gateway را تکمیل می‌کنیم. پورت‌های IIS جدول فقط رزرو پیشنهادی‌اند و سایت یا Binding جدیدی ایجاد نشده است.
 
@@ -94,3 +94,5 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Initialize-Service
 </div>
 
 راهنمای فعال‌سازی و قراردادهای تجهیزات/اسناد/Timeline ملک: [frontend-passport-handoff.md](frontend-passport-handoff.md).
+
+Health Score خوداظهاری، قواعد محاسبه، داده‌های لازم و اسکریپت دیتابیس: [health-score.md](health-score.md).

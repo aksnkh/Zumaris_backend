@@ -32,6 +32,7 @@ app.UseCors();
         options.SwaggerEndpoint("/identity/swagger/v1/swagger.json", "Identity Service");
         options.SwaggerEndpoint("/service-request/swagger/v1/swagger.json", "Service Request Service");
         options.SwaggerEndpoint("/property/swagger/v1/swagger.json", "Property Service");
+        options.SwaggerEndpoint("/property-intelligence/swagger/v1/swagger.json", "Property Intelligence Service");
         options.SwaggerEndpoint("/maintenance/swagger/v1/swagger.json", "Maintenance Service");
         options.SwaggerEndpoint("/document/swagger/v1/swagger.json", "Document Service");
         options.SwaggerEndpoint("/service-catalog/swagger/v1/swagger.json", "Service Catalog Service");

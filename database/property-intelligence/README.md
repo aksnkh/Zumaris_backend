@@ -1,3 +1,6 @@
 # PropertyIntelligence database
 
-Reserved for manual MySQL migration scripts. Planned schema: zumaris_property_intelligence. No schema or tables have been created. Do not access another service's schema directly.
+Manually apply `001_health_scores.sql` on MySQL 8.0.16+. It creates the service-owned
+assessment, assessment-history and calculation tables without modifying other schemas.
+Grant the actual runtime account SELECT/INSERT/UPDATE separately. No migration runs on startup.
+See [Health Score deployment](../../docs/health-score.md).

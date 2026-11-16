@@ -143,8 +143,7 @@ GET `/property/api/properties/{propertyId}/passport/metrics`:
 {"propertyId":"guid","healthScore":null,"healthScoreStatus":"NotConfigured","equipmentCount":1,"documentCount":2,"roomCount":3,"floorAreaSquareMetres":85.50,"serviceSummary":{"total":4,"open":2,"upcoming":1,"completed":1,"cancelled":1}}
 ```
 This object is inside the new response payload. Counts exclude archived records; zero is returned
-only when confirmed from the relevant real database. HealthScore stays null because no approved
-scoring formula/data completeness policy exists. No synthetic health date/score is generated.
+only when confirmed from the relevant real database. HealthScore is now calculated by the self-reported method described in [health-score.md](health-score.md); it remains null until all required data is complete. The older example above shows the initial pre-scoring placeholder; use the implementation update below. No synthetic health date/score is generated.
 ServiceSummary includes only the current customer's requests for the selected property:
 Open=Pending+Assigned+InProgress. Upcoming=Pending/Assigned with preferredDate >= today's UTC date.
 Upcoming is a subset of Open, not an additional status. Emergency requests without a preferred date
@@ -215,3 +214,10 @@ nonempty response page. Configure Property `ServiceCatalog:BaseUrl` (production 
 `http://127.0.0.1:5006/`, development `http://127.0.0.1:5110/`). Publish Property.Api;
 no database migration or new Gateway route is required. ServiceCatalog's existing
 area-icon configuration/files must already be available.
+
+## Health Score implementation update
+
+The earlier NotConfigured placeholder is replaced by the self-reported method 1.0.
+Use [Health Score API and rules](health-score.md) for the questionnaire, evidence requirements,
+coefficients, data-gap behavior and new PropertyIntelligence deployment/migration.
+`/passport/metrics` now exposes healthScore, healthScoreStatus and healthScoreDetails from that service.

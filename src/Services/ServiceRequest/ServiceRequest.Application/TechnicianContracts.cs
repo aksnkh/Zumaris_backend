@@ -6,7 +6,13 @@ public sealed record OpportunityPage(IReadOnlyList<ProviderQuoteContext> Items,i
 public sealed record TechnicianJob(Guid RequestId,string RequestNumber,Guid PropertyId,string? PropertyAddress,int CategoryId,int AreaTypeId,
  string Description,string Status,DateOnly? PreferredDate,TimeOnly? PreferredStartTime,TimeOnly? PreferredEndTime,string TimeZoneId,
  Guid ProviderId,Guid QuoteId,decimal Amount,string CurrencyCode,DateTime? StartedAtUtc,DateTime? CompletedAtUtc,string? WorkReport,
- IReadOnlyList<RequestPhotoDto> RequestPhotos,IReadOnlyList<RequestPhotoDto> ResultPhotos);
+ IReadOnlyList<RequestPhotoDto> RequestPhotos,IReadOnlyList<RequestPhotoDto> ResultPhotos)
+{
+ public decimal? Latitude{get;init;}
+ public decimal? Longitude{get;init;}
+ public string? CustomerName{get;init;}
+ public string? CustomerPhone{get;init;}
+}
 public sealed record CompletedWorkContext(Guid RequestId,Guid CustomerId,Guid ProviderId,string Status,Guid QuoteId,decimal Amount,string CurrencyCode);
 public interface ITechnicianEligibilityClient
 {

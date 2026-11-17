@@ -17,10 +17,29 @@ def token(who=user,app='App'):
  s=enc({'alg':'HS256','typ':'JWT'})+'.'+enc(p)
  return s+'.'+base64.urlsafe_b64encode(hmac.new(KEY.encode(),s.encode(),hashlib.sha256).digest()).rstrip(b'=').decode()
 owner_token=token();other_token=token(other);reader_token=token(reader)
+job_technician=str(uuid.uuid4());job_tech_token=token(job_technician,'Tech')
+job_provider=json.loads(base64.urlsafe_b64decode(job_tech_token.split('.')[1]+'=='))['providerId']
+profile_fields={'firstName':'Alex','lastName':'Customer','phone':'+447700900123'}
+profile_status=200
 class Identity(http.server.BaseHTTPRequestHandler):
  def do_GET(self):
   t=self.headers.get('Authorization','')[7:]
-  self.send_response(401 if t in revoked else identity_status);self.end_headers()
+  status=401 if t in revoked else identity_status
+  if status!=204:self.send_response(status);self.end_headers();return
+  route=self.path.split('?',1)[0];body=None
+  if route=='/api/profile/me':
+   claims=json.loads(base64.urlsafe_b64decode(t.split('.')[1]+'=='))
+   status=profile_status if claims.get('application')=='App' else 403
+   body={'payload':{'userId':claims['sub'],**profile_fields}}
+  elif route.startswith('/api/providers/'):
+   status=200
+   body={'providerId':job_provider,'userId':job_technician,'displayName':'Test technician','isVerified':True,'categoryId':1,'categoryIds':[1]}
+  elif route=='/api/categories/1':status=200;body={'id':1,'name':'Plumbing','iconUrl':None}
+  elif route=='/api/areas':status=200;body=[{'id':1,'name':'Kitchen','iconUrl':None}]
+  self.send_response(status)
+  if body is not None:self.send_header('Content-Type','application/json')
+  self.end_headers()
+  if body is not None:self.wfile.write(json.dumps(body).encode())
  def log_message(self,*a):pass
 def sql(value,check=True):
  r=subprocess.run(['docker','exec','-i',container,'mysql','-uroot','--batch','--skip-column-names'],input=value,text=True,capture_output=True)
@@ -87,14 +106,15 @@ if __name__=='__main__':
      subprocess.run(['docker','exec',container,'mysqladmin','-h127.0.0.1','ping','--silent'],check=True,capture_output=True);break
     except (RuntimeError,subprocess.CalledProcessError):pass
    time.sleep(1)
-  migrations=['property/001_properties.sql','property/002_passport.sql','maintenance/001_property_equipment.sql','document/001_property_documents.sql','service-request/001_service_requests.sql','service-request/002_request_lifecycle.sql','service-request/003_service_history.sql','service-request/008_property_activity_index.sql','property-intelligence/001_health_scores.sql']
+  migrations=['property/001_properties.sql','property/002_passport.sql','maintenance/001_property_equipment.sql','document/001_property_documents.sql','service-request/001_service_requests.sql','service-request/002_request_lifecycle.sql','service-request/003_service_history.sql','service-request/005_service_request_quotes.sql','service-request/006_technician_execution.sql','service-request/008_property_activity_index.sql','service-request/009_job_contact_snapshot.sql','property-intelligence/001_health_scores.sql']
   for name in migrations:sql((ROOT/'database'/name).read_text())
   # New scripts are additive and repeatable.
-  for name in ['property/002_passport.sql','maintenance/001_property_equipment.sql','document/001_property_documents.sql','service-request/008_property_activity_index.sql','property-intelligence/001_health_scores.sql']:sql((ROOT/'database'/name).read_text())
+  for name in ['property/002_passport.sql','maintenance/001_property_equipment.sql','document/001_property_documents.sql','service-request/008_property_activity_index.sql','service-request/009_job_contact_snapshot.sql','property-intelligence/001_health_scores.sql']:sql((ROOT/'database'/name).read_text())
   sql("CREATE USER 'passport_test'@'%' IDENTIFIED BY '';"+''.join(f'GRANT SELECT,INSERT,UPDATE ON zumaris_{x}.* TO \'passport_test\'@\'%\';' for x in ['property','maintenance','document','service_request','property_intelligence']))
   with tempfile.TemporaryDirectory(prefix='passport-api-') as folder:
    env=os.environ.copy();env.update({'ASPNETCORE_ENVIRONMENT':'Development','Jwt__Key':KEY,'Jwt__Issuer':'passport-tests','Jwt__Audience':'passport-tests','Documents__RootPath':folder+'/files','Storage__RootPath':folder+'/request-photos','DOTNET_CLI_TELEMETRY_OPTOUT':'1'})
    for n in ['Identity','Property','Maintenance','Document','ServiceRequest','PropertyIntelligence']:env[n+'__BaseUrl']=f'http://127.0.0.1:{ports[n]}/'
+   env['Provider__BaseUrl']=env['Identity__BaseUrl'];env['ServiceCatalog__BaseUrl']=env['Identity__BaseUrl']
    for n in ['Property','Maintenance','Document','ServiceRequest','PropertyIntelligence','Gateway']:start(n,env,folder)
    property_body={'addressLine':'12 Example Road','postcode':'SW1A 1AA','city':'London','countryCode':'GB','propertyType':'Detached','bedrooms':2,'bathrooms':1,'ownershipRole':'Owner'}
    p=call('Property','api/properties','POST',property_body,expected=201)['propertyId']
@@ -192,6 +212,40 @@ if __name__=='__main__':
    # Gateway exposes both newly activated services.
    assert payload('Gateway','maintenance/'+base+'/equipment')['totalCount']==1
    assert call('Gateway','document/'+fileurl,raw=True)==content
+   # New job contact snapshots are captured from the accepting customer's own token/property.
+   payload_property={**property_body,'latitude':51.556,'longitude':-.192}
+   call('Property',base,'PUT',payload_property)
+   job_request=str(uuid.uuid4())
+   sql(f"USE zumaris_service_request; INSERT INTO service_requests(id,user_id,property_id,category_id,area_type_id,description,urgency,time_zone_id,status,created_at,request_hash)VALUES('{job_request}','{user}','{p}',1,1,'A sufficiently detailed technician job request.','Emergency','Europe/London','Pending',UTC_TIMESTAMP(6),REPEAT('b',64));")
+   try:
+    opportunities=call('ServiceRequest','api/technician/opportunities',t=job_tech_token)
+    assert any(x['requestId']==job_request for x in opportunities['items'])
+    assert 'customerPhone' not in json.dumps(opportunities) and 'latitude' not in json.dumps(opportunities)
+    q=payload('ServiceRequest',f'api/service-requests/{job_request}/quotes','POST',{'labourAmount':75,'calloutAmount':20},t=job_tech_token,expected=201)
+    profile_status=503
+    call('ServiceRequest',f"api/quotes/{q['id']}/accept",'POST',expected=503)
+    assert sql(f"SELECT status FROM zumaris_service_request.service_requests WHERE id='{job_request}';")=='Pending'
+    profile_status=200
+    accepted=payload('ServiceRequest',f"api/quotes/{q['id']}/accept",'POST')
+    assert 'customerPhone' not in accepted and 'latitude' not in accepted
+    job=call('ServiceRequest',f'api/technician/jobs/{job_request}',t=job_tech_token)
+    assert job['latitude']==51.556 and job['longitude']==-.192 and job['customerName']=='Alex Customer' and job['customerPhone']=='+447700900123',job
+    assert '12 Example Road' in job['propertyAddress'] and 'SW1A 1AA' in job['propertyAddress']
+    jobs=call('ServiceRequest','api/technician/jobs?status=Assigned&pageNumber=1&pageSize=20',t=job_tech_token)
+    assert next(x for x in jobs['items'] if x['requestId']==job_request)['customerPhone']==job['customerPhone']
+    call('ServiceRequest',f'api/technician/jobs/{job_request}',t=token(other,'Tech'),expected=404)
+    profile_fields['phone']='+447700900999';profile_fields['firstName']='Changed'
+    call('Property',base,'PUT',{**payload_property,'addressLine':'99 Changed Road','latitude':1,'longitude':2})
+    profile_status=503;stop('Property')
+    call('ServiceRequest',f"api/quotes/{q['id']}/accept",'POST')
+    frozen=call('ServiceRequest',f'api/technician/jobs/{job_request}',t=job_tech_token)
+    assert frozen['latitude']==job['latitude'] and frozen['customerPhone']==job['customerPhone'] and frozen['propertyAddress']==job['propertyAddress']
+    start('Property',env,folder);profile_status=200
+    sql((ROOT/'database/service-request/009_job_contact_snapshot.sql').read_text())
+    assert call('ServiceRequest',f'api/technician/jobs/{job_request}',t=job_tech_token)['customerPhone']==job['customerPhone']
+   finally:
+    profile_status=200
+    sql(f"USE zumaris_service_request; DELETE FROM service_request_quotes WHERE request_id='{job_request}'; DELETE FROM service_request_status_history WHERE request_id='{job_request}'; DELETE FROM service_requests WHERE id='{job_request}';")
    revoked.add(owner_token);call('Document',fileurl,expected=401);revoked.clear()
    identity_status=503;call('Document',fileurl,expected=503);identity_status=204
    stop('Maintenance');call('Property',base+'/passport/metrics',expected=503);start('Maintenance',env,folder)
@@ -205,6 +259,11 @@ if __name__=='__main__':
    call('Property',base+'/events/'+event,'DELETE',expected=204)
    assert payload('Property',base+'/timeline?source=Manual')['totalCount']==0
    metrics=payload('Property',base+'/passport/metrics');assert metrics['equipmentCount']==0 and metrics['documentCount']==1 and metrics['roomCount']==0
+   sql("CREATE DATABASE zumaris_quotes_test; GRANT ALL ON zumaris_quotes_test.* TO 'passport_test'@'%';")
+   sqlenv=os.environ.copy();sqlenv['ZUMARIS_QUOTES_MYSQL_TEST_CONNECTION']='Server=127.0.0.1;Port=33306;Database=zumaris_quotes_test;User ID=passport_test;AllowPublicKeyRetrieval=True;SSL Mode=None'
+   with open(pathlib.Path(folder)/'job-sql-tests.log','w') as output:
+    test_result=subprocess.run([os.environ.get('DOTNET_ROOT','/workspace/.dotnet')+'/dotnet','test','tests/ServiceRequest.Tests/ServiceRequest.Tests.csproj','--no-build','--no-restore','--filter','FullyQualifiedName~MySqlQuoteTests|FullyQualifiedName~TechnicianWorkflowTests.Opportunity_assignment'],cwd=ROOT,env=sqlenv,stdout=output,stderr=subprocess.STDOUT)
+   if test_result.returncode:raise AssertionError((pathlib.Path(folder)/'job-sql-tests.log').read_text()[-3000:])
    for n in list(processes):stop(n)
   print(f'PASS: {tests} HTTP checks; persistence/restart, real MySQL, authorization, file bytes, aggregate metrics/timeline, gateway, revocation and dependency failures.')
  finally:

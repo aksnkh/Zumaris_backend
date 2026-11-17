@@ -1,3 +1,4 @@
+using Zumaris.ServiceRequests.Application;
 using System.Data;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
@@ -91,7 +92,7 @@ public sealed class QuoteAdoNetRepository(IConfiguration configuration) : IQuote
         if(!await r.ReadAsync(ct))return null;
         var item=Read(r);return r.GetGuid(r.GetOrdinal("customer_id"))!=actor&&item.Status!="Accepted"?item with {PropertyAddress=null}:item;
     }
-    public async Task<QuoteDto> DecideAsync(Guid actor,Guid quoteId,string decision,DateTime now,CancellationToken ct)
+    public async Task<QuoteDto> DecideAsync(Guid actor,Guid quoteId,string decision,DateTime now,CancellationToken ct,JobContactSnapshot? contact=null)
     {
         if(decision is not("Accepted" or "Declined" or "Withdrawn"))throw new ArgumentException("Invalid decision.");
         await using var c=new MySqlConnection(cs);await c.OpenAsync(ct);await using var tx=await c.BeginTransactionAsync(IsolationLevel.ReadCommitted,ct);
@@ -110,9 +111,11 @@ public sealed class QuoteAdoNetRepository(IConfiguration configuration) : IQuote
         if(decision=="Accepted")
         {
             await using(var assign=Cmd(c,tx,"""
-                UPDATE service_requests SET status='Assigned',technician_id=@provider,technician_name=@name,updated_at=@now,version=version+1
+                UPDATE service_requests SET status='Assigned',technician_id=@provider,technician_name=@name,updated_at=@now,version=version+1,
+                    property_address=COALESCE(@address,property_address),job_latitude=@latitude,job_longitude=@longitude,
+                    job_customer_name=@customerName,job_customer_phone=@customerPhone,job_contact_captured_at=IF(@captured,@now,NULL)
                 WHERE id=@id AND status='Pending'
-                """,("@id",requestId.ToString()),("@provider",quote.ProviderId.ToString()),("@name",quote.ProviderName),("@now",now)))
+                """,("@id",requestId.ToString()),("@provider",quote.ProviderId.ToString()),("@name",quote.ProviderName),("@now",now),("@address",contact?.PropertyAddress),("@latitude",contact?.Latitude),("@longitude",contact?.Longitude),("@customerName",contact?.CustomerName),("@customerPhone",contact?.CustomerPhone),("@captured",contact is not null)))
                 if(await assign.ExecuteNonQueryAsync(ct)!=1)throw new QuoteConflictException("Request is already assigned.");
             await using(var history=Cmd(c,tx,"""
                 INSERT INTO service_request_status_history (id,request_id,from_status,to_status,actor_user_id,occurred_at,reason)

@@ -34,6 +34,8 @@ builder.Services.AddScoped<IQuoteRepository,QuoteAdoNetRepository>();
 builder.Services.AddScoped<QuoteService>();
 builder.Services.AddScoped<ITechnicianWorkRepository,TechnicianWorkRepository>();
 builder.Services.AddScoped<TechnicianWorkService>();
+builder.Services.AddScoped<IJobContactLookup,JobContactLookup>();
+builder.Services.AddHttpClient("job-contact",c=>c.Timeout=TimeSpan.FromSeconds(5)).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
 builder.Services.AddScoped<QuoteExceptionFilter>();
 var providerUri=new Uri(builder.Configuration["Provider:BaseUrl"]??"http://127.0.0.1:5007/");
 if(!providerUri.IsAbsoluteUri||!string.IsNullOrEmpty(providerUri.UserInfo)||

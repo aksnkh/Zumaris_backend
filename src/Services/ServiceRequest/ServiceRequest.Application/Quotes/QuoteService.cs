@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 namespace Zumaris.ServiceRequests.Application.Quotes;
 
-public sealed class QuoteService(IQuoteRepository repository,IProviderQuoteEligibility providers,IQuoteDisplayLookup display,TimeProvider clock)
+public sealed class QuoteService(IQuoteRepository repository,IProviderQuoteEligibility providers,IQuoteDisplayLookup display,TimeProvider clock,IJobContactLookup contacts)
 {
     public async Task<ProviderQuoteContext> ContextAsync(Guid actor,Guid requestId,string bearer,CancellationToken ct)
     {
@@ -56,11 +56,17 @@ public sealed class QuoteService(IQuoteRepository repository,IProviderQuoteEligi
         await repository.GetAsync(actor,id,clock.GetUtcNow().UtcDateTime,ct,sent)??throw new QuoteNotFoundException();
     public async Task<QuoteDto> DecideAsync(Guid actor,Guid id,string decision,string bearer,CancellationToken ct)
     {
+        JobContactSnapshot? snapshot=null;
         if(decision=="Accepted")
         {
             var current=await GetAsync(actor,id,ct,false);
-            if(current.Status=="Pending")await providers.VerifyAsync(current.ProviderId,current.CategoryId,bearer,ct);
+            if(current.Status=="Pending")
+            {
+                await providers.VerifyAsync(current.ProviderId,current.CategoryId,bearer,ct);
+                try { snapshot=await contacts.Get(actor,current.PropertyId,bearer,ct); }
+                catch(JobContactUnavailableException){throw new QuoteUnavailableException("Job contact information is temporarily unavailable. Please retry accepting the quote.");}
+            }
         }
-        return await repository.DecideAsync(actor,id,decision,clock.GetUtcNow().UtcDateTime,ct);
+        return await repository.DecideAsync(actor,id,decision,clock.GetUtcNow().UtcDateTime,ct,snapshot);
     }
 }

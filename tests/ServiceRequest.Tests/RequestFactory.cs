@@ -26,6 +26,7 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
     public ITechnicianWorkRepository? WorkRepositoryOverride {get;init;}
     public TechnicianEligibilityFake WorkEligibility {get;}=new();
     public QuoteProviderFake QuoteProvider { get; } = new();
+    public JobContactsFake JobContacts {get;}=new();
     public TestClock Clock { get; } = new();
     public string UploadRoot { get; } = Path.Combine(Path.GetTempPath(), "zumaris-test-photos-" + Guid.NewGuid().ToString("N"));
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -37,6 +38,7 @@ public sealed class RequestFactory : WebApplicationFactory<Program>
         {
             if(WorkRepositoryOverride is not null){services.RemoveAll<ITechnicianWorkRepository>();services.AddSingleton<ITechnicianWorkRepository>(WorkRepositoryOverride);}
             services.RemoveAll<ITechnicianEligibilityClient>();services.AddSingleton<ITechnicianEligibilityClient>(WorkEligibility);
+            services.RemoveAll<IJobContactLookup>();services.AddSingleton<IJobContactLookup>(JobContacts);
             services.RemoveAll<IQuoteRepository>(); services.AddSingleton<IQuoteRepository>(QuoteRepositoryOverride ?? new UnexpectedQuoteRepository());
             services.RemoveAll<IProviderQuoteEligibility>(); services.AddSingleton<IProviderQuoteEligibility>(QuoteProvider);
             services.RemoveAll<IQuoteDisplayLookup>(); services.AddSingleton<IQuoteDisplayLookup>(new QuoteDisplayFake());
@@ -241,7 +243,7 @@ public sealed class UnexpectedQuoteRepository:IQuoteRepository
     public Task<QuoteDto>CreateAsync(Guid actor,Guid request,CreateQuoteRequest input,ProviderQuoteIdentity provider,QuoteDisplay display,int expectedRequestVersion,string hash,DateTime now,CancellationToken ct)=>throw Unexpected();
     public Task<QuotePage>ListAsync(Guid actor,bool sent,string? status,Guid? property,int page,int size,DateTime now,CancellationToken ct)=>throw Unexpected();
     public Task<QuoteDto?>GetAsync(Guid actor,Guid id,DateTime now,CancellationToken ct,bool? sent=null)=>throw Unexpected();
-    public Task<QuoteDto>DecideAsync(Guid actor,Guid id,string decision,DateTime now,CancellationToken ct)=>throw Unexpected();
+    public Task<QuoteDto>DecideAsync(Guid actor,Guid id,string decision,DateTime now,CancellationToken ct,JobContactSnapshot? contact=null)=>throw Unexpected();
 }
 
 public sealed class TechnicianEligibilityFake:ITechnicianEligibilityClient
@@ -249,4 +251,12 @@ public sealed class TechnicianEligibilityFake:ITechnicianEligibilityClient
  public Dictionary<Guid,int[]> Categories {get;}=new();
  public Task<TechnicianEligibility> GetAsync(Guid actor,string bearer,CancellationToken ct)
  {if(!Categories.TryGetValue(actor,out var cats))throw new QuoteForbiddenException();return Task.FromResult(new TechnicianEligibility(Guid.NewGuid(),actor,cats));}
+}
+
+public sealed class JobContactsFake:IJobContactLookup
+{
+ public JobContactSnapshot Value{get;set;}=new(null,null,null,null,null);
+ public bool Unavailable{get;set;}
+ public int Calls{get;private set;}
+ public Task<JobContactSnapshot> Get(Guid customerId,Guid propertyId,string bearer,CancellationToken ct){Calls++;if(Unavailable)throw new JobContactUnavailableException();return Task.FromResult(Value);}
 }

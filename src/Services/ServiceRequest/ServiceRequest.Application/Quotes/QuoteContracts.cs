@@ -35,7 +35,7 @@ public interface IQuoteRepository
     Task<QuoteDto> CreateAsync(Guid actor,Guid requestId,CreateQuoteRequest input,ProviderQuoteIdentity provider,QuoteDisplay display,int expectedRequestVersion,string hash,DateTime now,CancellationToken ct);
     Task<QuotePage> ListAsync(Guid actor,bool sent,string? status,Guid? propertyId,int page,int size,DateTime now,CancellationToken ct);
     Task<QuoteDto?> GetAsync(Guid actor,Guid quoteId,DateTime now,CancellationToken ct,bool? sent=null);
-    Task<QuoteDto> DecideAsync(Guid actor,Guid quoteId,string decision,DateTime now,CancellationToken ct);
+    Task<QuoteDto> DecideAsync(Guid actor,Guid quoteId,string decision,DateTime now,CancellationToken ct,JobContactSnapshot? contact=null);
 }
 public sealed class QuoteForbiddenException() : Exception("You are not authorized to submit a quote for this request.");
 public sealed class QuoteNotFoundException() : Exception("Quote or request not found.");

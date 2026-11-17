@@ -21,9 +21,9 @@ public class TechnicianWorkflowTests
  [QuoteMySqlFact]
  public async Task Opportunity_assignment_execution_completion_and_result_photo_access_follow_the_order_workflow()
  {
-  var cs=Environment.GetEnvironmentVariable("ZUMARIS_QUOTES_MYSQL_TEST_CONNECTION")!;var parsed=new MySqlConnectionStringBuilder(cs);Assert.Contains(parsed.Server,new[]{"127.0.0.1","localhost","::1"});Assert.Equal("zumaris_quotes_test",parsed.Database);
+  var cs=Environment.GetEnvironmentVariable("ZUMARIS_QUOTES_MYSQL_TEST_CONNECTION")!;var parsed=new MySqlConnectionStringBuilder(cs){AllowUserVariables=true};cs=parsed.ConnectionString;Assert.Contains(parsed.Server,new[]{"127.0.0.1","localhost","::1"});Assert.Equal("zumaris_quotes_test",parsed.Database);
   await using var db=new MySqlConnection(cs);await db.OpenAsync();var root=new DirectoryInfo(AppContext.BaseDirectory);while(root is not null&&!File.Exists(Path.Combine(root.FullName,"Zumaris.sln")))root=root.Parent;
-  foreach(var file in new[]{"001_service_requests.sql","002_request_lifecycle.sql","003_service_history.sql","005_service_request_quotes.sql","006_technician_execution.sql"})
+  foreach(var file in new[]{"001_service_requests.sql","002_request_lifecycle.sql","003_service_history.sql","005_service_request_quotes.sql","006_technician_execution.sql","009_job_contact_snapshot.sql"})
   {
    if(file=="003_service_history.sql"){await using var exists=new MySqlCommand("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='service_requests' AND column_name='request_number'",db);if(Convert.ToInt32(await exists.ExecuteScalarAsync())>0)continue;}
    await using var cmd=new MySqlCommand((await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/service-request",file))).Replace("zumaris_service_request","zumaris_quotes_test"),db);await cmd.ExecuteNonQueryAsync();
@@ -46,7 +46,21 @@ public class TechnicianWorkflowTests
    Assert.Equal(HttpStatusCode.NotFound,(await tech.GetAsync($"/api/technician/jobs/{id}")).StatusCode);
    var sent=await tech.PostAsJsonAsync($"/api/service-requests/{id}/quotes",new{labourAmount=75,calloutAmount=20});Assert.Equal(HttpStatusCode.Created,sent.StatusCode);
    using var quoteJson=JsonDocument.Parse(await sent.Content.ReadAsStringAsync());var quoteId=quoteJson.RootElement.GetProperty("payload").GetProperty("id").GetGuid();
+   f.JobContacts.Value=new("12 Example Road, London",51.556m,-.192m,"Alex Customer","+447700900123");
+   f.JobContacts.Unavailable=true;
+   Assert.Equal(HttpStatusCode.ServiceUnavailable,(await owner.PostAsync($"/api/quotes/{quoteId}/accept",null)).StatusCode);
+   Assert.Equal(HttpStatusCode.NotFound,(await tech.GetAsync($"/api/technician/jobs/{id}")).StatusCode);
+   f.JobContacts.Unavailable=false;
    Assert.Equal(HttpStatusCode.OK,(await owner.PostAsync($"/api/quotes/{quoteId}/accept",null)).StatusCode);
+   var saved=await tech.GetFromJsonAsync<TechnicianJob>($"/api/technician/jobs/{id}");
+   Assert.Equal(51.556m,saved!.Latitude);Assert.Equal(-.192m,saved.Longitude);Assert.Equal("Alex Customer",saved.CustomerName);Assert.Equal("+447700900123",saved.CustomerPhone);Assert.Equal("12 Example Road, London",saved.PropertyAddress);
+   var list=await tech.GetFromJsonAsync<TechnicianJobs>("/api/technician/jobs");Assert.Equal(saved.CustomerPhone,Assert.Single(list!.Items).CustomerPhone);Assert.Equal(saved.Latitude,list.Items[0].Latitude);
+   Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/technician/jobs/{id}")).StatusCode);
+   f.JobContacts.Value=new("Different address",1,2,"Different name","+447700900999");f.JobContacts.Unavailable=true;var before=f.JobContacts.Calls;
+   Assert.Equal(HttpStatusCode.OK,(await owner.PostAsync($"/api/quotes/{quoteId}/accept",null)).StatusCode);Assert.Equal(before,f.JobContacts.Calls);
+   var frozen=await tech.GetFromJsonAsync<TechnicianJob>($"/api/technician/jobs/{id}");Assert.Equal(saved.CustomerPhone,frozen!.CustomerPhone);Assert.Equal(saved.Latitude,frozen.Latitude);
+   var opportunityJson=await tech.GetStringAsync("/api/technician/opportunities");Assert.DoesNotContain("customerPhone",opportunityJson);Assert.DoesNotContain("latitude",opportunityJson);
+
    Assert.Equal(HttpStatusCode.Conflict,(await owner.GetAsync($"/api/service-requests/{id}/completed-work")).StatusCode);
    Assert.Equal(HttpStatusCode.Forbidden,(await owner.PostAsync($"/api/technician/jobs/{id}/start",null)).StatusCode);
    Assert.Equal(HttpStatusCode.NotFound,(await other.PostAsync($"/api/technician/jobs/{id}/start",null)).StatusCode);

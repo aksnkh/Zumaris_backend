@@ -22,11 +22,11 @@ public class MySqlQuoteTests
     [QuoteMySqlFact]
     public async Task Quote_workflow_enforces_ownership_qualification_prices_idempotency_and_atomic_assignment()
     {
-        var cs=Environment.GetEnvironmentVariable("ZUMARIS_QUOTES_MYSQL_TEST_CONNECTION")!;var builder=new MySqlConnectionStringBuilder(cs);
+        var cs=Environment.GetEnvironmentVariable("ZUMARIS_QUOTES_MYSQL_TEST_CONNECTION")!;var builder=new MySqlConnectionStringBuilder(cs){AllowUserVariables=true};cs=builder.ConnectionString;
         Assert.Contains(builder.Server,new[]{"localhost","127.0.0.1","::1"});Assert.Equal("zumaris_quotes_test",builder.Database);
         await using var c=new MySqlConnection(cs);await c.OpenAsync();
         var root=new DirectoryInfo(AppContext.BaseDirectory);while(root is not null&&!File.Exists(Path.Combine(root.FullName,"Zumaris.sln")))root=root.Parent;
-        foreach(var file in new[]{"001_service_requests.sql","002_request_lifecycle.sql","003_service_history.sql","005_service_request_quotes.sql"})
+        foreach(var file in new[]{"001_service_requests.sql","002_request_lifecycle.sql","003_service_history.sql","005_service_request_quotes.sql","009_job_contact_snapshot.sql"})
         {
             if(file=="003_service_history.sql")
             {

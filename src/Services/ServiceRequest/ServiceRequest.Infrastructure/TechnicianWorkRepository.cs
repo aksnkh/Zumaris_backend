@@ -47,7 +47,8 @@ public sealed class TechnicianWorkRepository(IConfiguration configuration):ITech
   await using(var r=await cmd.ExecuteReaderAsync(ct))
   {
    if(!await r.ReadAsync(ct))return null;
-   job=new(r.GetGuid(r.GetOrdinal("id")),r.GetString("request_number"),r.GetGuid(r.GetOrdinal("property_id")),Text(r,"property_address"),r.GetInt32("category_id"),r.GetInt32("area_type_id"),r.GetString("description"),r.GetString("status"),Day(r),Time(r,"preferred_start_time"),Time(r,"preferred_end_time"),r.GetString("time_zone_id"),r.GetGuid(r.GetOrdinal("technician_id")),r.GetGuid(r.GetOrdinal("quote_id")),r.GetDecimal("quote_amount"),r.GetString("quote_currency"),Date(r,"started_at"),Date(r,"completed_at"),Text(r,"work_report"),[],[]);
+   job=new(r.GetGuid(r.GetOrdinal("id")),r.GetString("request_number"),r.GetGuid(r.GetOrdinal("property_id")),Text(r,"property_address"),r.GetInt32("category_id"),r.GetInt32("area_type_id"),r.GetString("description"),r.GetString("status"),Day(r),Time(r,"preferred_start_time"),Time(r,"preferred_end_time"),r.GetString("time_zone_id"),r.GetGuid(r.GetOrdinal("technician_id")),r.GetGuid(r.GetOrdinal("quote_id")),r.GetDecimal("quote_amount"),r.GetString("quote_currency"),Date(r,"started_at"),Date(r,"completed_at"),Text(r,"work_report"),[],[])
+   {Latitude=r.IsDBNull(r.GetOrdinal("job_latitude"))?null:r.GetDecimal("job_latitude"),Longitude=r.IsDBNull(r.GetOrdinal("job_longitude"))?null:r.GetDecimal("job_longitude"),CustomerName=Text(r,"job_customer_name"),CustomerPhone=Text(r,"job_customer_phone")};
   }
   async Task<IReadOnlyList<RequestPhotoDto>> Photos(string table,string route)
   {

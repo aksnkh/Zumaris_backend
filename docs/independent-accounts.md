@@ -144,3 +144,7 @@ POST /identity/api/admin/logout
 ## ظرفیت نام کاربری
 
 در نسخهٔ فعلی 008، ستون user_name در حساب‌ها و نشست‌ها ۲۵۴ کاراکتر است. اگر 008 را قبل از این اصلاح اجرا کرده‌اید، فقط `database/identity/009_email_username_capacity.sql` را اجرا کنید؛ این فایل داده‌ها را پاک نمی‌کند و اجرای دوبارهٔ 008 لازم نیست.
+
+## Password recovery
+
+App, Tech and Admin now have independent forgot-password/reset-password endpoints. See [password recovery](password-recovery.md) for the request contracts, migration, encrypted delivery and deployment settings.

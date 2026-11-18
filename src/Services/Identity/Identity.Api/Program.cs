@@ -18,6 +18,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Threading.RateLimiting;
 
+using Identity.Api.Security;
+using Microsoft.AspNetCore.DataProtection;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplicationIsolation("App", "Tech", "Admin");
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false)
@@ -95,6 +97,24 @@ builder.Services.AddScoped<IExternalLoginRepository, ExternalLoginAdoNetReposito
 builder.Services.AddScoped<GoogleAuthService>();
 builder.Services.AddScoped<BffOnlyFilter>();
 builder.Services.AddSingleton(TimeProvider.System);
+var recovery = builder.Configuration.GetSection("PasswordRecovery").Get<PasswordRecoverySettings>() ?? new();
+recovery.Validate();
+builder.Services.AddSingleton(recovery);
+var protection = builder.Services.AddDataProtection().SetApplicationName("Zumaris.Identity");
+if (recovery.Enabled)
+{
+    var keyPath = builder.Configuration["DataProtection:KeysPath"];
+    if (string.IsNullOrWhiteSpace(keyPath) || !Path.IsPathFullyQualified(keyPath)) throw new InvalidOperationException("Configure a private, persistent DataProtection:KeysPath before enabling recovery.");
+    protection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+}
+builder.Services.AddScoped<IRecoveryProtector,RecoveryProtection>();
+builder.Services.AddScoped<IPasswordRecoveryRepository,PasswordRecoveryRepository>();
+builder.Services.AddScoped<PasswordRecoveryService>();
+builder.Services.AddScoped<RecoveryExceptionFilter>();
+builder.Services.AddHostedService<RecoveryEmailWorker>();
+var notificationUri = new Uri(builder.Configuration["Notification:BaseUrl"] ?? "http://127.0.0.1:5009/");
+if (!notificationUri.IsAbsoluteUri || !string.IsNullOrEmpty(notificationUri.UserInfo) || !notificationUri.AbsoluteUri.EndsWith('/') || !(notificationUri.Scheme == "https" || notificationUri.Scheme == "http" && notificationUri.IsLoopback)) throw new InvalidOperationException("Notification:BaseUrl must use HTTPS or loopback HTTP with a trailing slash.");
+builder.Services.AddHttpClient<IRecoveryEmailClient,RecoveryEmailClient>(c => { c.BaseAddress=notificationUri; c.Timeout=TimeSpan.FromSeconds(20); }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect=false });
 builder.Services.AddScoped<IProfileRepository,ProfileAdoNetRepository>();
 builder.Services.AddScoped<IProfilePhotoStorage,LocalProfilePhotoStorage>();
 builder.Services.AddScoped<ProfileService>();
@@ -108,9 +128,15 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, ct) =>
+    {
+        var path=context.HttpContext.Request.Path.Value??"";
+        if(path.EndsWith("/forgot-password",StringComparison.OrdinalIgnoreCase)||path.EndsWith("/reset-password",StringComparison.OrdinalIgnoreCase))
+            await context.HttpContext.Response.WriteAsJsonAsync(Zumaris.BuildingBlocks.Common.Responses.ApiResponseError.Create(429,"Too many password recovery attempts. Please try again later.",context.HttpContext.TraceIdentifier),new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web){Converters={new System.Text.Json.Serialization.JsonStringEnumConverter<Zumaris.BuildingBlocks.Common.Responses.MessageLevel>()}},ct);
+    };
     options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
-        { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        (context.Request.Path.Value?.EndsWith("/forgot-password",StringComparison.OrdinalIgnoreCase)==true ? "forgot:" : context.Request.Path.Value?.EndsWith("/reset-password",StringComparison.OrdinalIgnoreCase)==true ? "reset:" : "auth:") + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown"), _ => new FixedWindowRateLimiterOptions
+        { PermitLimit = context.Request.Path.Value?.EndsWith("/forgot-password",StringComparison.OrdinalIgnoreCase)==true ? 5 : context.Request.Path.Value?.EndsWith("/reset-password",StringComparison.OrdinalIgnoreCase)==true ? 10 : 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {

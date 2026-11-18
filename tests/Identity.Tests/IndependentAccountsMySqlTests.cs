@@ -25,6 +25,31 @@ public class IndependentAccountsMySqlTests
  }
  private static SignupAccount Input(string email="same@example.test")=>new("Same","Person",email,"+447700900123",new PasswordHasher().Hash("Separate-password-123"));
  [IndependentMySqlFact]
+ public async Task Recovery_is_single_use_scoped_revokes_sessions_and_rejects_stale_login_credentials()
+ {
+  var(cs,cfg)=await Reset();
+  var root=new DirectoryInfo(AppContext.BaseDirectory);while(root is not null&&!File.Exists(Path.Combine(root.FullName,"Zumaris.sln")))root=root.Parent;
+  await using(var c=new MySqlConnection(cs)){await c.OpenAsync();await using var migration=new MySqlCommand("DROP TABLE IF EXISTS identity_password_resets;"+(await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/identity/010_password_recovery.sql"))).Replace("zumaris_identity","zumaris_independent_identity_test"),c);await migration.ExecuteNonQueryAsync();}
+  var accounts=new ApplicationAccountRepository(cfg);var app=await accounts.CreateAsync("App",Input(),default);var tech=await accounts.CreateAsync("Tech",Input(),default);var createdAdmin=await new AdministratorAccountRepository(cfg).CreateAsync(Input(),null,DateTime.UtcNow,default);var admin=(await accounts.FindByIdAsync("Admin",createdAdmin.UserId,default))!;
+  var sessions=new SessionAdoNetRepository(cfg);var now=DateTime.UtcNow;
+  var a=new AuthSession(Guid.NewGuid(),app.Id,app.UserName,now,now.AddHours(1),null){Application="App"};
+  var t=new AuthSession(Guid.NewGuid(),tech.Id,tech.UserName,now,now.AddHours(1),null){Application="Tech",ProviderId=Guid.NewGuid()};
+  var m=new AuthSession(Guid.NewGuid(),admin.Id,admin.UserName,now,now.AddHours(1),null){Application="Admin"};
+  await sessions.CreateAsync(a,new string('a',64),default,app.PasswordHash);await sessions.CreateAsync(t,new string('b',64),default,tech.PasswordHash);await sessions.CreateAsync(m,new string('c',64),default,admin.PasswordHash);
+  var recovery=new PasswordRecoveryRepository(cfg);var hash=PasswordRecoveryService.TokenHash(new string('x',43));
+  await accounts.CreateAsync("App",Input("tést@example.test"),default);
+  Assert.False(await recovery.Issue(new(Guid.NewGuid(),"App","test@example.test",new string('d',64),"protected-test",now,now.AddMinutes(15),60),default));
+  Assert.True(await recovery.Issue(new(Guid.NewGuid(),"App",app.Email,hash,"protected-test",now,now.AddMinutes(15),60),default));
+  Assert.False(await recovery.Issue(new(Guid.NewGuid(),"App",app.Email,new string('d',64),"protected-test",now,now.AddMinutes(15),60),default));
+  var next=new PasswordHasher().Hash("New-password-123");
+  Assert.False(await recovery.Consume("Tech",hash,next,now,default));
+  var outcomes=await Task.WhenAll(recovery.Consume("App",hash,next,now,default),recovery.Consume("App",hash,next,now,default));Assert.Single(outcomes,x=>x);
+  Assert.False(await sessions.IsActiveAsync(a.Id,app.Id));Assert.True(await sessions.IsActiveAsync(t.Id,tech.Id));Assert.True(await sessions.IsActiveAsync(m.Id,admin.Id));
+  Assert.False(await recovery.Consume("App",hash,next,now,default));
+  var stale=a with{Id=Guid.NewGuid()};await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>sessions.CreateAsync(stale,new string('e',64),default,app.PasswordHash));
+  var fresh=a with{Id=Guid.NewGuid()};await sessions.CreateAsync(fresh,new string('f',64),default,next);Assert.True(await sessions.IsActiveAsync(fresh.Id,app.Id));
+ }
+ [IndependentMySqlFact]
  public async Task Three_account_tables_allow_same_email_without_sharing_profiles_credentials_or_admin_access()
  {
   var(_,cfg)=await Reset();var accounts=new ApplicationAccountRepository(cfg);var adminRepo=new AdministratorAccountRepository(cfg);
@@ -81,7 +106,7 @@ public class IndependentAccountsMySqlTests
   var old=new string('a',64);var next=new string('b',64);await sessions.CreateAsync(s,old);
   Assert.Equal("Tech",(await sessions.FindByTokenAsync(old))!.Application);Assert.True(await sessions.IsActiveAsync(s.Id,tech.Id));Assert.False(await sessions.IsActiveAsync(s.Id,app.Id));
   Assert.True(await sessions.RotateAsync(s.Id,old,next));Assert.False(await sessions.RotateAsync(s.Id,old,next));Assert.False(await sessions.IsActiveAsync(s.Id,tech.Id));
-  var invalid=new AuthSession(Guid.NewGuid(),tech.Id,tech.UserName,now,now.AddHours(1),null){Application="App"};await sessions.CreateAsync(invalid,new string('c',64));Assert.Null(await sessions.FindByIdAsync(invalid.Id,tech.Id));
+  var invalid=new AuthSession(Guid.NewGuid(),tech.Id,tech.UserName,now,now.AddHours(1),null){Application="App"};await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>sessions.CreateAsync(invalid,new string('c',64)));Assert.Null(await sessions.FindByIdAsync(invalid.Id,tech.Id));
   var tokens=new JwtTokenService(new JwtSettings{Key=AuthFactory.TestKey,Issuer="tests",Audience="clients"});Assert.Throws<InvalidOperationException>(()=>tokens.CreateAccessToken(tech,Guid.NewGuid(),now.AddHours(1),"App"));
  }
  [IndependentMySqlFact]

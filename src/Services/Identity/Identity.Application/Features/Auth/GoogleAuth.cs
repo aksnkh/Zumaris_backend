@@ -32,7 +32,7 @@ public sealed class UserSessionIssuer(ISessionRepository sessions, ITokenService
         var session = new AuthSession(Guid.NewGuid(), user.Id, user.UserName, now, now.AddDays(settings.RefreshTokenExpirationDays), null) { Application = application, ProviderId = providerId };
         var refresh = tokens.GenerateRefreshToken();
         var access = tokens.CreateAccessToken(user, session.Id, session.ExpiresAtUtc, application, providerId);
-        await sessions.CreateAsync(session, tokens.HashRefreshToken(refresh), cancellationToken);
+        await sessions.CreateAsync(session, tokens.HashRefreshToken(refresh), cancellationToken, user.PasswordHash);
         return (new AuthResponse(access.Token, access.ExpiresAtUtc, user.UserName)
             { UserId = user.Id, RefreshTokenExpiresAtUtc = session.ExpiresAtUtc, Application = application, Role = application == "Tech" ? "Provider" : application == "Admin" ? "Admin" : "Customer", ProviderId = providerId }, refresh);
     }

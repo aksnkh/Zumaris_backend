@@ -35,10 +35,17 @@ public sealed class SessionAdoNetRepository(IConfiguration configuration) : ISes
         { Application = reader.IsDBNull(reader.GetOrdinal("application")) ? null : reader.GetString("application"),
           ProviderId = reader.IsDBNull(reader.GetOrdinal("provider_id")) ? null : reader.GetGuid(reader.GetOrdinal("provider_id")) };
 
-    public async Task CreateAsync(AuthSession session, string tokenHash, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(AuthSession session, string tokenHash, CancellationToken cancellationToken = default, string? expectedPasswordHash = null)
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        // Recheck credentials while holding the account lock so a pre-reset password cannot mint a new session after reset.
+        await using (var account = Command(connection, $"SELECT password_hash FROM {AccountSql.Table(session.Application!)} WHERE id=@id AND is_active=1 AND is_deleted=0 FOR UPDATE", transaction, ("@id", session.UserId.ToString())))
+        {
+            var current = await account.ExecuteScalarAsync(cancellationToken);
+            if (current is null || expectedPasswordHash is not null && (current is not string hash || !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(hash), System.Text.Encoding.UTF8.GetBytes(expectedPasswordHash))))
+                throw new UnauthorizedAccessException("The account credentials changed. Sign in again.");
+        }
         await using var insert = Command(connection, """
             INSERT INTO zumaris_auth_sessions (id, user_id, user_name, created_at, expires_at, application, provider_id)
             VALUES (@id, @user, @name, @created, @expires, @application, @provider)

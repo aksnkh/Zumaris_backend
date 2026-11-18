@@ -92,7 +92,7 @@ public sealed class MemorySessions : ISessionRepository
     public Dictionary<Guid, AuthSession> Items { get; } = [];
     public Dictionary<string, (Guid SessionId, bool Used)> Tokens { get; } = [];
 
-    public Task CreateAsync(AuthSession session, string tokenHash, CancellationToken cancellationToken = default)
+    public Task CreateAsync(AuthSession session, string tokenHash, CancellationToken cancellationToken = default, string? expectedPasswordHash = null)
     {
         lock (gate) { Items.Add(session.Id, session); Tokens.Add(tokenHash, (session.Id, false)); }
         return Task.CompletedTask;

@@ -1,26 +1,26 @@
-using Zumaris.BuildingBlocks.Common.Validation;
+using System.Text;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddControllers().AddValidationMessages();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Notification API (Scaffold)", Version = "v1" });
-    options.AddServer(new OpenApiServer { Url = "../.." });
+using Zumaris.BuildingBlocks.Common.Validation;
+using Zumaris.Notification.Application;
+using Zumaris.Notification.Infrastructure;
+using Zumaris.Notification.Api.Controllers;
+var builder=WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.Local.json",true,false).AddEnvironmentVariables().AddCommandLine(args);
+var key=builder.Configuration["Jwt:Key"]??"";var issuer=builder.Configuration["Jwt:Issuer"];
+if(Encoding.UTF8.GetByteCount(key)<32||string.IsNullOrWhiteSpace(issuer))throw new InvalidOperationException("Configure Notification's Identity JWT key and issuer.");
+var smtp=builder.Configuration.GetSection("Smtp").Get<SmtpSettings>()??new();smtp.DevelopmentLoopback=builder.Environment.IsDevelopment();
+builder.Services.AddSingleton(smtp);builder.Services.AddScoped<IRecoveryMailSender,RecoverySmtpSender>();builder.Services.AddScoped<MailFailureFilter>();
+builder.Services.AddControllers().AddValidationMessages().AddJsonOptions(o=>{o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues:false));o.JsonSerializerOptions.UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow;});
+builder.Services.AddEndpointsApiExplorer();builder.Services.AddSwaggerGen(o=>{o.SwaggerDoc("v1",new OpenApiInfo{Title="Notification internal API",Version="v1"});});
+builder.Services.AddProblemDetails();builder.Services.AddHealthChecks();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o=>{
+ o.MapInboundClaims=false;o.IncludeErrorDetails=false;o.TokenValidationParameters=new(){ValidateIssuer=true,ValidIssuer=issuer,ValidateAudience=true,ValidAudience="Zumaris.Notification.PasswordRecovery",ValidateLifetime=true,ValidateIssuerSigningKey=true,IssuerSigningKey=new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),RequireSignedTokens=true,RequireExpirationTime=true,ValidAlgorithms=[SecurityAlgorithms.HmacSha256],ValidTypes=["JWT"],ClockSkew=TimeSpan.FromSeconds(5)};
+ o.Events=new(){OnTokenValidated=c=>{if(c.SecurityToken.ValidTo-c.SecurityToken.ValidFrom>TimeSpan.FromMinutes(1)||!Guid.TryParse(c.Principal?.FindFirst("jti")?.Value,out _))c.Fail("Invalid service credential.");return Task.CompletedTask;}};
 });
-builder.Services.AddHealthChecks();
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
-{
-    var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-    if (origins.Length > 0) policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
-}));
-
-var app = builder.Build();
-app.UseSwagger();
-app.UseSwaggerUI(options => options.SwaggerEndpoint("v1/swagger.json", "Notification API (Scaffold)"));
-app.UseCors();
-// Liveness only: there is no database, business workflow or authentication integration yet.
-app.MapHealthChecks("/health");
-app.MapControllers();
-app.Run();
+builder.Services.AddAuthorization(o=>o.AddPolicy("RecoveryMail",p=>p.RequireAuthenticatedUser().RequireClaim("sub","identity-password-recovery").RequireClaim("scope","password-reset-email")));
+builder.Services.AddCors(o=>o.AddDefaultPolicy(p=>{var origins=builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()??[];if(origins.Length>0)p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();}));
+var app=builder.Build();app.UseExceptionHandler();app.UseSwagger();app.UseSwaggerUI();app.UseCors();app.UseAuthentication();app.UseAuthorization();app.MapHealthChecks("/health");app.MapControllers();app.Run();
+public partial class Program;

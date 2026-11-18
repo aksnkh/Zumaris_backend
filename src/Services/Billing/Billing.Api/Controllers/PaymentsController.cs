@@ -18,7 +18,11 @@ public sealed class PaymentsController(PaymentService service,IPaymentRepository
 {
  private Guid Actor=>Guid.Parse(User.FindFirst("sub")!.Value);
  [HttpPost]
- public async Task<IActionResult> Create(CreatePaymentRequest input,CancellationToken ct)=>Ok(new{message="Payment request recorded. PayPal checkout is not connected yet.",payload=await service.CreateAsync(Actor,input,Request.Headers.Authorization.ToString()["Bearer ".Length..],ct)});
+ public async Task<IActionResult> Create(CreatePaymentRequest input,CancellationToken ct)
+ {
+  var item=await service.CreateAsync(Actor,input,Request.Headers.Authorization.ToString()["Bearer ".Length..],ct);
+  return Ok(new{message=item.IsDemo?"Demo payment confirmed. No money was charged.":"Payment request recorded. PayPal checkout is not connected yet.",payload=item});
+ }
  [HttpGet("{id:guid}")]
  public async Task<IActionResult> Get(Guid id,CancellationToken ct)
  {var item=await repository.GetAsync(Actor,id,ct);return item is null?NotFound(new{message="Payment request not found."}):Ok(item);}

@@ -16,6 +16,7 @@ public class MySqlPaymentTests
   var sql=(await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/billing/001_payment_intents.sql"))).Replace("zumaris_billing","zumaris_billing_test");
   for(int i=0;i<2;i++){await using var setup=new MySqlCommand(sql,c);await setup.ExecuteNonQueryAsync();}
   var repo=new PaymentRepository(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:DefaultConnection",cs}}).Build());
+  await using(var migrate=new MySqlCommand((await File.ReadAllTextAsync(Path.Combine(root!.FullName,"database/billing/002_demo_payments.sql"))).Replace("zumaris_billing","zumaris_billing_test"),c))await migrate.ExecuteNonQueryAsync();
   var user=Guid.NewGuid();var work=new CompletedWork(Guid.NewGuid(),user,Guid.NewGuid(),"Completed",Guid.NewGuid(),95,"GBP");
   try
   {
@@ -23,6 +24,12 @@ public class MySqlPaymentTests
    Assert.Null(await repo.GetAsync(Guid.NewGuid(),results[0].Id,default));
    var error=await Assert.ThrowsAsync<BillingException>(()=>repo.CreateAsync(user,work with{Amount=1},default));Assert.Equal(409,error.Status);
    Assert.Equal(95,(await repo.GetAsync(user,results[0].Id,default))!.Amount);
+   var demo=new PaymentRepository(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:DefaultConnection",cs},{"Payments:DemoMode","true"}}).Build());
+   var paid=await demo.CreateAsync(user,work,default);
+   Assert.Equal(results[0].Id,paid.Id);Assert.Equal("Paid",paid.Status);Assert.True(paid.IsDemo);
+   Assert.Equal("Demo",(await repo.GetAsync(user,paid.Id,default))!.Gateway);
+   var retries=await Task.WhenAll(demo.CreateAsync(user,work,default),demo.CreateAsync(user,work,default));
+   Assert.All(retries,p=>{Assert.Equal(paid.Id,p.Id);Assert.Equal("Paid",p.Status);});
   }
   finally{await using var cmd=new MySqlCommand("DELETE FROM payment_intents WHERE request_id=@id",c);cmd.Parameters.AddWithValue("@id",work.RequestId.ToString());await cmd.ExecuteNonQueryAsync();}
  }

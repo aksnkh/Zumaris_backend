@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using MySqlConnector;
 using Zumaris.ServiceRequests.Application;
@@ -42,13 +43,13 @@ public sealed class TechnicianWorkRepository(IConfiguration configuration):ITech
  public async Task<TechnicianJob?> JobAsync(Guid actor,Guid id,bool customer,CancellationToken ct)
  {
   await using var c=await Open(ct);await using var tx=await c.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct);
-  await using var cmd=Cmd(c,tx,"SELECT r.*,q.id AS quote_id,q.total_amount AS quote_amount,q.currency_code AS quote_currency,e.started_at,e.completed_at,e.work_report"+Join+" LEFT JOIN service_request_execution e ON e.request_id=r.id WHERE r.id=@id AND ((@customer=0 AND q.provider_user_id=@actor) OR (@customer=1 AND r.user_id=@actor))",("@actor",actor.ToString()),("@id",id.ToString()),("@customer",customer));
+  await using var cmd=Cmd(c,tx,"SELECT r.*,q.snapshot AS quote_snapshot,q.id AS quote_id,q.total_amount AS quote_amount,q.currency_code AS quote_currency,e.started_at,e.completed_at,e.work_report"+Join+" LEFT JOIN service_request_execution e ON e.request_id=r.id WHERE r.id=@id AND ((@customer=0 AND q.provider_user_id=@actor) OR (@customer=1 AND r.user_id=@actor))",("@actor",actor.ToString()),("@id",id.ToString()),("@customer",customer));
   TechnicianJob job;
   await using(var r=await cmd.ExecuteReaderAsync(ct))
   {
    if(!await r.ReadAsync(ct))return null;
    job=new(r.GetGuid(r.GetOrdinal("id")),r.GetString("request_number"),r.GetGuid(r.GetOrdinal("property_id")),Text(r,"property_address"),r.GetInt32("category_id"),r.GetInt32("area_type_id"),r.GetString("description"),r.GetString("status"),Day(r),Time(r,"preferred_start_time"),Time(r,"preferred_end_time"),r.GetString("time_zone_id"),r.GetGuid(r.GetOrdinal("technician_id")),r.GetGuid(r.GetOrdinal("quote_id")),r.GetDecimal("quote_amount"),r.GetString("quote_currency"),Date(r,"started_at"),Date(r,"completed_at"),Text(r,"work_report"),[],[])
-   {Latitude=r.IsDBNull(r.GetOrdinal("job_latitude"))?null:r.GetDecimal("job_latitude"),Longitude=r.IsDBNull(r.GetOrdinal("job_longitude"))?null:r.GetDecimal("job_longitude"),CustomerName=Text(r,"job_customer_name"),CustomerPhone=Text(r,"job_customer_phone")};
+   {CategoryIconUrl=JsonSerializer.Deserialize<QuoteDto>(r.GetString("quote_snapshot"))?.CategoryIconUrl,Latitude=r.IsDBNull(r.GetOrdinal("job_latitude"))?null:r.GetDecimal("job_latitude"),Longitude=r.IsDBNull(r.GetOrdinal("job_longitude"))?null:r.GetDecimal("job_longitude"),CustomerName=Text(r,"job_customer_name"),CustomerPhone=Text(r,"job_customer_phone")};
   }
   async Task<IReadOnlyList<RequestPhotoDto>> Photos(string table,string route)
   {

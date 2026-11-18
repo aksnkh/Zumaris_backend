@@ -4,6 +4,7 @@ public sealed record CreatePaymentRequest(Guid RequestId);
 public sealed record CompletedWork(Guid RequestId,Guid CustomerId,Guid ProviderId,string Status,Guid QuoteId,decimal Amount,string CurrencyCode);
 public sealed record PaymentIntent(Guid Id,Guid RequestId,Guid QuoteId,decimal Amount,string CurrencyCode,string Gateway,string Status,DateTime CreatedAtUtc)
 {
+ public bool IsDemo=>Gateway=="Demo";
  public bool CanPay=>false;
  public string? CheckoutUrl=>null;
 }

@@ -8,6 +8,7 @@ public sealed record TechnicianJob(Guid RequestId,string RequestNumber,Guid Prop
  Guid ProviderId,Guid QuoteId,decimal Amount,string CurrencyCode,DateTime? StartedAtUtc,DateTime? CompletedAtUtc,string? WorkReport,
  IReadOnlyList<RequestPhotoDto> RequestPhotos,IReadOnlyList<RequestPhotoDto> ResultPhotos)
 {
+ public string? CategoryIconUrl{get;init;}
  public decimal? Latitude{get;init;}
  public decimal? Longitude{get;init;}
  public string? CustomerName{get;init;}

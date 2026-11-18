@@ -20,6 +20,12 @@ public sealed class PaymentRepository(IConfiguration configuration):IPaymentRepo
   await using var query=new MySqlCommand("SELECT * FROM payment_intents WHERE request_id=@id AND customer_id=@customer FOR UPDATE",c,tx);query.Parameters.AddWithValue("@id",work.RequestId.ToString());query.Parameters.AddWithValue("@customer",customer.ToString());
   PaymentIntent item;await using(var reader=await query.ExecuteReaderAsync(ct)){if(!await reader.ReadAsync(ct))throw new BillingException(409,"The payment request conflicts with an existing record.");item=Read(reader);}
   if(item.QuoteId!=work.QuoteId||item.Amount!=work.Amount||item.CurrencyCode!=work.CurrencyCode)throw new BillingException(409,"The fixed-price payment details do not match.");
+  if(configuration.GetValue<bool>("Payments:DemoMode") && item.Status=="AwaitingGateway")
+  {
+   await using var approve=new MySqlCommand("UPDATE payment_intents SET gateway='Demo',status='Paid' WHERE id=@id AND customer_id=@customer AND status='AwaitingGateway'",c,tx);
+   approve.Parameters.AddWithValue("@id",item.Id.ToString());approve.Parameters.AddWithValue("@customer",customer.ToString());
+   await approve.ExecuteNonQueryAsync(ct);item=item with{Gateway="Demo",Status="Paid"};
+  }
   await tx.CommitAsync(ct);return item;
  }
  public async Task<PaymentIntent?> GetAsync(Guid customer,Guid id,CancellationToken ct)

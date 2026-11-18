@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS payment_intents (
  INDEX ix_payment_customer(customer_id,created_at,id),
  CONSTRAINT ck_payment_amount CHECK(amount>0 AND amount<=999999.99),
  CONSTRAINT ck_payment_currency CHECK(currency_code='GBP'),
- CONSTRAINT ck_payment_gateway CHECK(gateway='PayPal'),
- CONSTRAINT ck_payment_stage CHECK(status='AwaitingGateway')
+ CONSTRAINT ck_payment_gateway CHECK(gateway IN ('PayPal','Demo')),
+ CONSTRAINT ck_payment_stage CHECK((gateway='PayPal' AND status='AwaitingGateway') OR (gateway='Demo' AND status='Paid'))
 ) ENGINE=InnoDB;
 -- No cross-service foreign keys. Completed job and accepted quote are verified via API.
--- No endpoint can mark payment Paid; trusted PayPal integration is explicitly deferred.
+-- Demo Paid records are simulated; trusted PayPal integration is still deferred.

@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -12,6 +13,7 @@ builder.Configuration.AddJsonFile("appsettings.Local.json",true,false).AddEnviro
 var key=builder.Configuration["Jwt:Key"]??"";var issuer=builder.Configuration["Jwt:Issuer"];
 if(Encoding.UTF8.GetByteCount(key)<32||string.IsNullOrWhiteSpace(issuer))throw new InvalidOperationException("Configure Notification's Identity JWT key and issuer.");
 var smtp=builder.Configuration.GetSection("Smtp").Get<SmtpSettings>()??new();smtp.DevelopmentLoopback=builder.Environment.IsDevelopment();
+builder.Services.AddScoped<IEmailDiagnosticsSender,RecoverySmtpSender>();
 builder.Services.AddSingleton(smtp);builder.Services.AddScoped<IRecoveryMailSender,RecoverySmtpSender>();builder.Services.AddScoped<MailFailureFilter>();
 builder.Services.AddControllers().AddValidationMessages().AddJsonOptions(o=>{o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues:false));o.JsonSerializerOptions.UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow;});
 builder.Services.AddEndpointsApiExplorer();builder.Services.AddSwaggerGen(o=>{o.SwaggerDoc("v1",new OpenApiInfo{Title="Notification internal API",Version="v1"});});
@@ -20,7 +22,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
  o.MapInboundClaims=false;o.IncludeErrorDetails=false;o.TokenValidationParameters=new(){ValidateIssuer=true,ValidIssuer=issuer,ValidateAudience=true,ValidAudience="Zumaris.Notification.PasswordRecovery",ValidateLifetime=true,ValidateIssuerSigningKey=true,IssuerSigningKey=new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),RequireSignedTokens=true,RequireExpirationTime=true,ValidAlgorithms=[SecurityAlgorithms.HmacSha256],ValidTypes=["JWT"],ClockSkew=TimeSpan.FromSeconds(5)};
  o.Events=new(){OnTokenValidated=c=>{if(c.SecurityToken.ValidTo-c.SecurityToken.ValidFrom>TimeSpan.FromMinutes(1)||!Guid.TryParse(c.Principal?.FindFirst("jti")?.Value,out _))c.Fail("Invalid service credential.");return Task.CompletedTask;}};
 });
-builder.Services.AddAuthorization(o=>o.AddPolicy("RecoveryMail",p=>p.RequireAuthenticatedUser().RequireClaim("sub","identity-password-recovery").RequireClaim("scope","password-reset-email")));
+builder.Services.AddAuthentication().AddJwtBearer("AdminDiagnostics",o=>{
+ o.MapInboundClaims=false;o.IncludeErrorDetails=false;
+ o.TokenValidationParameters=new(){ValidateIssuer=true,ValidIssuer=issuer,ValidateAudience=true,ValidAudience=builder.Configuration["Jwt:Audience"]??"Zumaris.Client",ValidateLifetime=true,ValidateIssuerSigningKey=true,IssuerSigningKey=new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),RequireSignedTokens=true,RequireExpirationTime=true,ValidAlgorithms=[SecurityAlgorithms.HmacSha256],ValidTypes=["JWT"],ClockSkew=TimeSpan.FromSeconds(5)};
+});
+var identityUrl=new Uri(builder.Configuration["Identity:BaseUrl"]??"http://127.0.0.1:5001/");
+if(!identityUrl.IsAbsoluteUri || !string.IsNullOrEmpty(identityUrl.UserInfo) || !identityUrl.AbsoluteUri.EndsWith('/') || !(identityUrl.Scheme=="https" || identityUrl.Scheme=="http" && identityUrl.IsLoopback))throw new InvalidOperationException("Identity:BaseUrl must use HTTPS or loopback HTTP with a trailing slash.");
+builder.Services.AddHttpClient<IAdminAccessVerifier,AdminAccessVerifier>(c=>{c.BaseAddress=identityUrl;c.Timeout=TimeSpan.FromSeconds(10);}).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
+builder.Services.AddRateLimiter(o=>{o.RejectionStatusCode=429;o.OnRejected=async (c,ct)=>await c.HttpContext.Response.WriteAsJsonAsync(Zumaris.BuildingBlocks.Common.Responses.ApiResponseError.Create(429,"Too many email test attempts. Try again later.",c.HttpContext.TraceIdentifier),new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web){Converters={new JsonStringEnumConverter<Zumaris.BuildingBlocks.Common.Responses.MessageLevel>()}},ct);o.AddPolicy("EmailDiagnostics",c=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(c.User.FindFirst("sub")?.Value??c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new System.Threading.RateLimiting.FixedWindowRateLimiterOptions{PermitLimit=3,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
+builder.Services.AddAuthorization(o=>{o.AddPolicy("EmailDiagnosticsAdmin",p=>p.AddAuthenticationSchemes("AdminDiagnostics").RequireAuthenticatedUser().RequireClaim("application","Admin").RequireClaim("role","Admin").RequireClaim("sid").RequireClaim("sub"));o.AddPolicy("RecoveryMail",p=>p.RequireAuthenticatedUser().RequireClaim("sub","identity-password-recovery").RequireClaim("scope","password-reset-email"));});
 builder.Services.AddCors(o=>o.AddDefaultPolicy(p=>{var origins=builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()??[];if(origins.Length>0)p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();}));
-var app=builder.Build();app.UseExceptionHandler();app.UseSwagger();app.UseSwaggerUI();app.UseCors();app.UseAuthentication();app.UseAuthorization();app.MapHealthChecks("/health");app.MapControllers();app.Run();
+var app=builder.Build();app.UseExceptionHandler();app.UseSwagger();app.UseSwaggerUI();app.UseCors();app.UseAuthentication();app.UseAuthorization();app.UseRateLimiter();app.MapHealthChecks("/health");app.MapControllers();app.Run();
 public partial class Program;

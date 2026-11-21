@@ -171,6 +171,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Billing.Tests", "tests\Bill
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PropertyIntelligence.Tests", "tests\PropertyIntelligence.Tests\PropertyIntelligence.Tests.csproj", "{0875F6DB-FD6F-48F2-8747-7FD417CDF7D9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notification.Tests", "tests\Notification.Tests\Notification.Tests.csproj", "{568ECC02-E468-4D89-96A1-60E7ECBAF0C5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -408,6 +410,10 @@ Global
 		{0875F6DB-FD6F-48F2-8747-7FD417CDF7D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0875F6DB-FD6F-48F2-8747-7FD417CDF7D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0875F6DB-FD6F-48F2-8747-7FD417CDF7D9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{568ECC02-E468-4D89-96A1-60E7ECBAF0C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{568ECC02-E468-4D89-96A1-60E7ECBAF0C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{568ECC02-E468-4D89-96A1-60E7ECBAF0C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{568ECC02-E468-4D89-96A1-60E7ECBAF0C5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{7DA3B316-2A89-4554-A294-84B7369E304A} = {40A53A23-4937-4AFC-A3F4-5BDBF1CE4A42}
@@ -485,5 +491,6 @@ Global
 		{6AAD8DD0-8915-4E78-9232-C529CFC14A23} = {B772D164-4591-451E-BDB8-D0B2DCA20893}
 		{B966B5A3-17DA-4652-A09E-A0CDBB73E149} = {B772D164-4591-451E-BDB8-D0B2DCA20893}
 		{0875F6DB-FD6F-48F2-8747-7FD417CDF7D9} = {B772D164-4591-451E-BDB8-D0B2DCA20893}
+		{568ECC02-E468-4D89-96A1-60E7ECBAF0C5} = {B772D164-4591-451E-BDB8-D0B2DCA20893}
 	EndGlobalSection
 EndGlobal

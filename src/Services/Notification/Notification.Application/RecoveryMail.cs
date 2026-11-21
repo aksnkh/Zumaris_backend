@@ -12,3 +12,5 @@ public sealed class SmtpSettings
     public bool EnableTls { get; set; } = true;
     public bool DevelopmentLoopback { get; set; }
 }
+
+public interface IEmailDiagnosticsSender { Task SendTest(string recipient, CancellationToken ct); }
